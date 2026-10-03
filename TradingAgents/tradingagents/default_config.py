@@ -154,6 +154,11 @@ def build_default_config() -> dict:
             "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
             "prediction_markets": "polymarket",  # Options: polymarket (keyless)
         },
+        # Explicit session calendars keyed by the requested uppercase symbol.
+        # No exchange is guessed from ticker syntax. Unmapped symbols retain
+        # calendar-day freshness. Example: {"AAPL": "XNYS", "SPY": "XNYS"}.
+        "price_calendars": {},
+        "price_max_missing_sessions": 1,
         # Tool-level configuration (takes precedence over category-level)
         "tool_vendors": {
             # Example: "get_stock_data": "alpha_vantage",  # Override category default

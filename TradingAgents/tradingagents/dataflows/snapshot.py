@@ -13,6 +13,7 @@ def build_verified_market_snapshot(symbol, as_of_date, look_back_days=30, indica
     rendered = render_snapshot(history.to_frame(), symbol, as_of_date, look_back_days, indicators)
     return (
         f"Provider: {history.provider}; prices: {history.adjustment}; "
-        f"volume: {history.volume_basis}; currency: {history.currency or 'unknown'}\n\n"
+        f"volume: {history.volume_basis}; currency: {history.currency or 'unknown'}; "
+        f"calendar: {history.calendar_name or 'unknown'}\n\n"
         + rendered
     )

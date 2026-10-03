@@ -53,8 +53,8 @@ cutoff.
 
 This delivery does not close all of F2:
 
-- Exchange calendars, early closes and session-aware freshness replace the
-  provisional ten-day rule in a later change.
+- Exchange calendars and an explicit instant API are implemented below. Unmapped
+  instruments retain the provisional ten-day rule; the CLI remains date-based.
 - The standalone technical-indicator tool still uses its existing independently
   configured provider; only the snapshot's indicators use the new price contract.
 - Currency, market, feed identifiers, publication/availability times, URLs and
@@ -67,8 +67,8 @@ This delivery does not close all of F2:
 - Direct legacy Yahoo helper calls remain available for compatibility; application
   stock tools, snapshot and settlement use the new layer.
 
-No new dependencies, LLM calls, GitHub Actions runs or live market requests are
-needed for local validation:
+The first delivery added no dependencies; the second adds the calendar package.
+No LLM calls, GitHub Actions runs or live market requests are needed for validation:
 
 ```sh
 cd TradingAgents
@@ -79,3 +79,57 @@ uv run --no-sync ruff check .
 Validation recorded 2026-10-03: 1,163 tests and 91 subtests passed; one live
 integration test deselected by the default offline policy. Ruff passed. These
 results cover the local interpreter, not the blocked GitHub Actions matrix.
+
+## Session calendars (second F2 delivery)
+
+Install from the updated lock (`uv sync --locked --extra dev --extra bedrock`).
+`exchange-calendars` is now a core dependency, locked to 4.13.2. Assign calendars
+explicitly in the graph configuration, using the **requested uppercase symbol**:
+
+```python
+config["price_calendars"] = {"AAPL": "XNYS", "SPY": "XNYS"}
+config["price_max_missing_sessions"] = 0
+```
+
+No exchange is inferred from a ticker. The assignment is configuration, not
+provider-verified listing metadata. Unmapped symbols keep the ten-calendar-day
+freshness rule. Mapped symbols reject bars on non-session dates and count missing
+sessions after the latest bar instead of elapsed calendar days. A configured
+fallback is still attempted on stale or invalid data. The default tolerance is
+one missing session; zero requires the latest expected session. This checks tail
+freshness, not completeness of every interior session in the historical window.
+
+Dates in existing analyst tools still mean a session-date cutoff, including that
+date's bar. This is intentionally distinct from the new Python API for an instant:
+
+```python
+from datetime import datetime
+from tradingagents.dataflows.config import run_config
+from tradingagents.dataflows.prices import get_closed_price_history
+
+with run_config(config):
+    history = get_closed_price_history(
+        "AAPL", "2026-11-01", datetime.fromisoformat("2026-11-27T12:59:59-05:00")
+    )
+```
+
+This example excludes November 27's still-open session. Its scheduled early close
+is 13:00 New York time. The API requires an explicit calendar and an aware cutoff;
+it records the UTC cutoff and calendar in the result. `calendars.latest_closed_session`
+uses scheduled close times, including DST and early closes. The existing CLI and
+analyst tools remain date-based; they do not silently switch to this instant API.
+
+The schedule does **not** prove a vendor has published a final bar, nor prevent
+later corporate-action revisions. Publication timestamps and point-in-time data
+remain open work. Calendar definitions also require maintenance for exceptional
+closures. See the upstream [calendar documentation](https://github.com/gerrymanoim/exchange_calendars/blob/master/README.md).
+
+Calendar configuration and missing-session tolerance are included in run manifests.
+Settlement validates configured session labels, but does not demand that the
+entire future query window has already traded; its existing holding-window check
+continues to decide when an outcome is ready.
+
+Second-delivery validation (2026-10-03): 1,183 tests and 91 subtests passed; one
+live integration test deselected. Ruff passed and pip-audit found no known
+vulnerabilities in the locked application/dev/Bedrock dependency set. All checks
+ran locally; no GitHub Actions job was triggered.

@@ -10,6 +10,8 @@ from math import isfinite
 
 import pandas as pd
 
+from tradingagents.dataflows.calendars import validate_sessions
+from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.errors import NoMarketDataError, VendorUnavailableError
 from tradingagents.dataflows.router import route_implementations
 from tradingagents.dataflows.symbols import normalize_symbol
@@ -40,6 +42,8 @@ class PriceHistory:
     volume_basis: str = "provider_reported"
     currency: str | None = None
     schema_version: int = 1
+    calendar_name: str | None = None
+    cutoff_at: datetime | None = None
 
     def to_frame(self) -> pd.DataFrame:
         """A fresh mutable view; callers cannot change the stored evidence."""
@@ -53,7 +57,8 @@ class PriceHistory:
         return (
             f"# Stock data for {self.provider_symbol} from {self.start} to {self.end}\n"
             f"# Provider: {self.provider}; prices: {self.adjustment}; "
-            f"volume: {self.volume_basis}; currency: {self.currency or 'unknown'}\n"
+            f"volume: {self.volume_basis}; currency: {self.currency or 'unknown'}; "
+            f"calendar: {self.calendar_name or 'unknown'}\n"
             + self.to_frame().to_csv(index=False)
         )
 
@@ -142,6 +147,14 @@ def fetch_provider_history(provider, symbol, start_date, end_date, *, max_stale_
     if start > end:
         raise ValueError("start_date must not be after end_date")
     history = {"alpha_vantage": _alpha, "yfinance": _yahoo}[provider](symbol, start, end)
+    config = get_config()
+    calendar = config.get("price_calendars", {}).get(symbol.strip().upper())
+    if calendar is not None:
+        return validate_sessions(
+            history, calendar,
+            max_missing_sessions=(config.get("price_max_missing_sessions", 1)
+                                  if max_stale_days is not None else None),
+        )
     if max_stale_days is not None and (end - history.bars[-1].session).days > max_stale_days:
         raise NoMarketDataError(symbol, history.provider_symbol, "latest price is stale")
     return history
@@ -169,3 +182,23 @@ def get_closes(symbol: str, start_date: str, end_date: str) -> pd.Series:
     history = get_price_history(symbol, start_date, str(end))
     return pd.Series([b.close for b in history.bars],
                      index=pd.DatetimeIndex([b.session for b in history.bars]), dtype=float)
+
+
+def get_closed_price_history(symbol: str, start_date: str, cutoff: datetime) -> PriceHistory:
+    """Prices through the last scheduled close at an explicit aware instant.
+
+    Requires an explicitly assigned calendar. It excludes an open session,
+    but cannot establish when a provider actually published or revised a bar.
+    """
+    from dataclasses import replace
+
+    from tradingagents.dataflows.calendars import latest_closed_session
+
+    calendar = get_config().get("price_calendars", {}).get(symbol.strip().upper())
+    if calendar is None:
+        raise ValueError("instant-based prices require an explicit price_calendars entry")
+    end = latest_closed_session(calendar, cutoff)
+    if date.fromisoformat(start_date) > end:
+        raise NoMarketDataError(symbol, detail="no closed session in requested window")
+    history = get_price_history(symbol, start_date, str(end), max_stale_days=10)
+    return replace(history, cutoff_at=cutoff.astimezone(UTC))
