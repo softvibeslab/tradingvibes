@@ -137,6 +137,12 @@ Install the package and its dependencies (`uv pip install .` with uv):
 pip install .
 ```
 
+### Reproducible development
+
+For the locked development environment, CI and analysis manifests, see
+[the development guide](docs/development.md). Each CLI/API analysis attempt now
+records metadata under `results_dir/runs/<run_id>/manifest.json`.
+
 ### Docker
 
 Alternatively, run with Docker:

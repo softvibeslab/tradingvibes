@@ -14,3 +14,5 @@ Las fichas son páginas/fuentes, no 39 proveedores independientes. Disponibilida
 
 - [Plan por fases, dependencias y criterios de aceptación](PLAN_IMPLEMENTACION.md)
 - [Backlog de 38 entregables](BACKLOG_IMPLEMENTACION.csv)
+
+Primer bloque implementado: [validación y alcance](../../TradingAgents/docs/validation-foundation.md). F1 continúa parcialmente pendiente; consultar el backlog.

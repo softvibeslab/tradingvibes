@@ -30,6 +30,7 @@ from tradingagents.graph.analyst_execution import (
     build_analyst_execution_plan,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.runs import analysis_run
 
 
 def _run_directory(config: dict, ticker: str, trade_date: str) -> Path:
@@ -184,7 +185,10 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
 
     # The alternate screen keeps a layout taller than the window from redrawing
     # by scrolling; the final report prints after this block, on the normal screen.
-    with Live(layout, refresh_per_second=4, screen=True):
+    with analysis_run(
+        config, selections["ticker"], selections["analysis_date"], selected_analyst_keys, portfolio,
+        asset_type=selections["asset_type"],
+    ), Live(layout, refresh_per_second=4, screen=True):
         # Initial display
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 

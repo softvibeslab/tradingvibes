@@ -5,6 +5,13 @@ on:
     branches: [main, 'v[0-9]+.[0-9]+.[0-9]+']
   pull_request:
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: TradingAgents
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -25,43 +32,66 @@ jobs:
       TZ: ${{ matrix.tz }}
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.21"
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install (with dev extras)
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          uv sync --locked --extra dev --extra bedrock --python "${{ matrix.python-version }}"
       - name: Run test suite
-        run: pytest -q
+        run: uv run --no-sync pytest -q
 
   smoke-install:
     name: clean-install smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.21"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Fresh install (no dev extras) and import
         run: |
-          python -m pip install --upgrade pip
-          pip install .
+          uv sync --locked --no-dev --no-editable --python 3.12
           # Catches undeclared runtime deps (e.g. #994 python-dotenv): a bare
           # install must import the package and the CLI module.
-          python -c "import tradingagents, cli.main; print('clean-install import OK')"
+          uv run --no-sync python -I -c "import tradingagents, cli.main; print('clean-install import OK')"
 
   lint:
     name: ruff (strict, full repo)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.21"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install ruff
-        run: pip install "ruff>=0.16"
+        run: uv sync --locked --extra dev --python 3.12
       - name: Lint the repository
         # The repo is fully clean under the strict select, so we lint everything
         # (generated results/ is excluded via pyproject extend-exclude).
-        run: ruff check .
+        run: uv run --no-sync ruff check .
+
+  audit:
+    name: audit locked dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.21"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Export locked application dependencies
+        run: uv export --locked --all-extras --no-group security --no-hashes --no-emit-project --output-file "$RUNNER_TEMP/tradingagents-audit.txt"
+      - name: Audit known vulnerabilities
+        run: uv run --locked --group security pip-audit --disable-pip --no-deps -r "$RUNNER_TEMP/tradingagents-audit.txt"

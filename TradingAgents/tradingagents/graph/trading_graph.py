@@ -18,6 +18,7 @@ from tradingagents.llm_clients import build_llm_kwargs, create_llm_client
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
 from tradingagents.reporting import write_report_tree
+from tradingagents.runs import analysis_run, current_run, safe_settings
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
 from .conditional_logic import ConditionalLogic
@@ -197,8 +198,12 @@ class TradingAgentsGraph:
         """
         trade_date = _validate_trade_date(trade_date)
 
-        with run_config(self.config), \
-                self.checkpoint_scope(company_name, trade_date, asset_type, portfolio) as thread_id_value:
+        with (
+            analysis_run(self.config, company_name, trade_date, self.selected_analysts,
+                         portfolio, asset_type=asset_type),
+            run_config(self.config),
+            self.checkpoint_scope(company_name, trade_date, asset_type, portfolio) as thread_id_value,
+        ):
             return self._run_graph(
                 company_name, trade_date, asset_type=asset_type,
                 checkpoint_thread_id=thread_id_value, portfolio=portfolio,
@@ -275,16 +280,9 @@ class TradingAgentsGraph:
         """
         cfg = self.config
         return {
+            **safe_settings(cfg),
             "version": tradingagents.__version__,
-            "llm_provider": cfg.get("llm_provider"),
-            "deep_think_llm": cfg.get("deep_think_llm"),
-            "quick_think_llm": cfg.get("quick_think_llm"),
             "analysts": list(self.selected_analysts),
-            "max_debate_rounds": cfg.get("max_debate_rounds"),
-            "max_risk_discuss_rounds": cfg.get("max_risk_discuss_rounds"),
-            "output_language": cfg.get("output_language"),
-            "data_vendors": dict(cfg.get("data_vendors") or {}),
-            "tool_vendors": dict(cfg.get("tool_vendors") or {}),
         }
 
     def save_reports(self, final_state, ticker, save_path=None) -> Path:
@@ -311,7 +309,7 @@ class TradingAgentsGraph:
         assembled the state itself would skip the memory log.
         """
         self.settle_pending(company_name)
-        return self.propagator.create_initial_state(
+        state = self.propagator.create_initial_state(
             company_name,
             trade_date,
             asset_type=asset_type,
@@ -321,6 +319,12 @@ class TradingAgentsGraph:
             instrument_context=self.resolve_instrument_context(company_name, asset_type, trade_date),
             portfolio_context=portfolio.render(company_name) if portfolio is not None else "",
         )
+        manifest = current_run()
+        if manifest is not None:
+            manifest["initial_memory_context_sha256"] = hashlib.sha256(
+                (state.get("past_context") or "").encode()
+            ).hexdigest()
+        return state
 
     def settle_pending(self, company_name):
         """Settle this ticker's decisions whose holding window has now traded.
@@ -336,6 +340,13 @@ class TradingAgentsGraph:
     def record_decision(self, company_name, trade_date, final_state):
         """Record a finished run: its state log, and its decision in the memory log
         for reflection on the next same-ticker run. propagate() and the CLI both end here."""
+        manifest = current_run()
+        if manifest is not None:
+            final_state["run_id"] = manifest["run_id"]
+            if "past_context" in final_state:
+                manifest["memory_context_sha256"] = hashlib.sha256(
+                    (final_state["past_context"] or "").encode()
+                ).hexdigest()
         self._log_state(trade_date, final_state)
         decision = final_state.get("final_trade_decision")
         if not decision:
