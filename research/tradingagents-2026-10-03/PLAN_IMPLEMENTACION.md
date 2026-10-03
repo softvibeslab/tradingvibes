@@ -2,7 +2,7 @@
 
 Estado: F0 implementada; F1 parcialmente implementada y CI remota aprobada (prompts efectivos y modelos resueltos pendientes). F2 en curso: contrato de precios, puente de texto y rutas de snapshot/settlement compartidas implementadas. Calendarios explícitos por símbolo y consulta por instante con zona implementados. CLI con cutoff y contratos SEC/FRED integrados. Disponibilidad histórica exacta y cobertura de proveedores/indicadores pendientes.
 
-F2 publicada en PR #2 con siete jobs aprobados. F3 iniciada con archivo JSON explícito y replay de precios; captura opcional de precios y textos fundamentales/macro vinculada a manifiestos implementada; replay de herramientas disponible; contratos SEC/FRED integrados; captura tipada SEC/FRED implementada; replay de grafo/LLM pendiente.
+F2 publicada en PR #2 con siete jobs aprobados. F3 iniciada con archivo JSON explícito y replay de precios; captura opcional de precios y textos fundamentales/macro vinculada a manifiestos implementada; replay de herramientas disponible; contratos SEC/FRED integrados; captura tipada SEC/FRED implementada; captura y replay de invocaciones LLM disponibles; replay de grafo completo pendiente.
 
 Detalle de esta entrega: [contrato de precios](../../TradingAgents/docs/price-contract.md).
 Base: [investigación del repositorio](2026-10-03_informe.md), checkout `8b22d43d01d9ddda5d686d093d5385884622f3de`.
