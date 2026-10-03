@@ -1,6 +1,8 @@
 # Plan de implementación de TradingAgents
 
-Estado: F0/F1 implementadas con validación local; CI remota bloqueada por facturación. F2 en curso: contrato de precios, puente de texto y rutas de snapshot/settlement compartidas implementadas. Calendarios explícitos por símbolo y consulta por instante con zona implementados. Disponibilidad histórica, integración horaria en CLI y otras familias de datos pendientes.
+Estado: F0/F1 implementadas y CI remota aprobada. F2 en curso: contrato de precios, puente de texto y rutas de snapshot/settlement compartidas implementadas. Calendarios explícitos por símbolo y consulta por instante con zona implementados. Disponibilidad histórica, integración horaria en CLI y otras familias de datos pendientes.
+
+F2 publicada en PR #2 con siete jobs aprobados. F3 iniciada con archivo JSON explícito y replay de precios; captura automática y replay completo pendientes.
 
 Detalle de esta entrega: [contrato de precios](../../TradingAgents/docs/price-contract.md).
 Base: [investigación del repositorio](2026-10-03_informe.md), checkout `8b22d43d01d9ddda5d686d093d5385884622f3de`.
