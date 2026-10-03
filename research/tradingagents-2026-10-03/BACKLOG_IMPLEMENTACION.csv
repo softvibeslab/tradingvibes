@@ -1,0 +1,39 @@
+id,fase,entregable,depende_de,aceptacion,estado
+TA-001,F0,Baseline y ADR de alcance,,Baseline documentado; cambios del usuario preservados,propuesto
+TA-002,F1,uv lock y CI compatible,TA-001,Instalación reproducible y matriz Python pasa,propuesto
+TA-003,F1,Manifiesto de corrida y saneamiento,TA-001,Run completo/fallido trazable sin secretos,propuesto
+TA-004,F1,Auditoría de dependencias,TA-002,Auditoría sobre resolución real y excepciones explícitas,propuesto
+TA-005,F2,Contrato tipado y puente de texto,TA-003,Renders compatibles y provenance explícita,propuesto
+TA-006,F2,Unificar precios snapshot y settlement,TA-005,Feed elegido respetado; outcomes aislados del analista,propuesto
+TA-007,F2,Validación tabular y calendarios,TA-005,Casos DST splits festivos y datos inválidos cubiertos,propuesto
+TA-008,F3,Archivo inmutable y consultas,TA-005,Hashes y escritura atómica; permisos de almacenamiento,propuesto
+TA-009,F3,Replay de datos y respuestas,TA-008,Sin red; evidencia ausente falla explícitamente,propuesto
+TA-010,F4,Dataset y evaluadores determinísticos,TA-007;TA-009,Casos fijos y cutoff/citas/números evaluados,propuesto
+TA-011,F4,Retornos numéricos y lectura legado,TA-003;TA-006,Métricas precisas; logs legados con precisión declarada,propuesto
+TA-012,F4,Observabilidad y presupuesto,TA-003,Trazas correlacionadas y costos desconocidos explícitos,propuesto
+TA-013,F4,Ablations y orden de memoria,TA-010;TA-011;TA-012,Comparación emparejada con memoria y evidencia controladas,propuesto
+TA-014,F5,Ampliar provenance SEC y FRED,TA-005;TA-008,Enmiendas/vintages preservados,propuesto
+TA-015,F5,Alpaca Data y harness proveedores,TA-006;TA-007;TA-008,Feed y errores distinguibles; comparación fija,propuesto
+TA-016,F5,Massive precios y noticias,TA-015,Adaptador opt-in con contrato y permisos registrados,propuesto
+TA-017,F5,Financial Datasets,TA-014,Publicación y revisiones contrastadas contra SEC,propuesto
+TA-018,F5,Banxico macro,TA-014,Unidades y versiones validadas por serie,propuesto
+TA-019,F6,Cuatro skills de desarrollo,TA-001,Skills versionadas con instrucciones y referencias,propuesto
+TA-020,F6,Earnings y revisión de tesis runtime,TA-013,Rúbrica adaptada evaluada contra baseline,propuesto
+TA-021,F6,Comparables y DCF determinísticos,TA-017;TA-020,Cálculos/sensibilidades verificables y inputs explícitos,propuesto
+TA-022,F7,Documentación MCP del desarrollador,TA-001,Perfiles y runbook sin secretos,propuesto
+TA-023,F7,Cliente MCP runtime y servidor fixture,TA-009;TA-012,Sesiones/cutoff/símbolo/timeouts comprobados,propuesto
+TA-024,F7,Perfiles MCP financieros,TA-023;TA-015;TA-016;TA-017,Herramientas mínimas y esquema/estado de validación publicados,propuesto
+TA-025,F8,Signal y política de cartera,TA-013;TA-015,Señal tipada; texto ambiguo no ejecutable,propuesto
+TA-026,F8,Simulación vectorbt,TA-025,Cash fees fills y tiempos conciliados,propuesto
+TA-027,F8,Walk-forward y baseline prospectivo,TA-026,Particiones y exclusiones explícitas; sin filtración de etiquetas,propuesto
+TA-028,F9,Alpaca paper y ledger órdenes,TA-026,Idempotencia parcial fills y reinicio reconciliados,propuesto
+TA-029,F9,CLI paper y escenarios de fallo,TA-028,Pausa/cancelación diferenciadas y endpoint live rechazado,propuesto
+TA-030,F10,Databento intradía,TA-007;TA-015,Identidad temporal y presupuesto validados,propuesto
+TA-031,F10,OpenBB servicio separado,TA-023,Cobertura incremental demostrada,propuesto
+TA-032,F10,Exportadores LangSmith y Langfuse,TA-012,Paridad de eventos; sólo backend elegido activo,propuesto
+TA-033,F10,Adaptadores LEAN y Nautilus,TA-026,Señales equivalentes y diferencias de fill documentadas,propuesto
+TA-034,F10,Baseline QLib,TA-027,Entrenamiento/test temporalmente separados,propuesto
+TA-035,F10,IBKR paper,TA-029,Cuenta permisos y contrato paper comprobados,propuesto
+TA-036,F10,Runbook Alpaca CLI,TA-029,Versión y diagnóstico validados en paper,propuesto
+TA-037,F11,Migraciones respaldo y rollback,TA-009;TA-029,Restauración sin pérdida ni reenvío de órdenes,propuesto
+TA-038,F11,Docs CLI release y smoke,TA-020;TA-024;TA-027;TA-029;TA-037,Recorrido con fixtures y matriz extras pasa,propuesto
