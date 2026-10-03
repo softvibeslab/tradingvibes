@@ -1,7 +1,7 @@
 # Evidence storage: first F3 delivery
 
-`EvidenceStore` is an explicit local JSON archive. It is not enabled automatically
-by agents, and does not capture HTTP requests, API keys or model output. Archive
+`EvidenceStore` is an explicit local JSON archive. It is disabled by default; the price-capture opt-in is described below. It does
+not capture HTTP requests, API keys or model output. Archive
 only payloads whose provider terms permit local retention. JSON payloads supplied
 by callers are not automatically redacted; use normalized data, not HTTP headers,
 provider configuration, credentials or full request URLs.
@@ -43,11 +43,44 @@ Hashes detect accidental modification, not malicious replacement of both objects
 and references. The store is not an append-only security boundary. Run IDs and
 object IDs are validated to avoid path traversal through API parameters.
 
-Remaining F3 work: automatic capture with explicit retention policy, manifest
-references and tool invocation ordering, raw response permissions, replay routing,
+Remaining F3 work: capture of other families, tool invocation start ordering,
+raw response permissions, replay routing,
 fundamental/macro payload schemas, schema migration, indexing/Parquet/DuckDB,
 retention management, and full graph reproducibility. The archive does not make
 unknown publication timestamps known or remove corporate-action revision bias.
 
-Local validation: 1,195 tests and 91 subtests passed; one integration test
+Local validation after capture integration: 1,206 tests and 91 subtests passed; one integration test
 deselected under the offline policy. Ruff passed.
+
+## Opt-in capture during analysis
+
+To capture normalized prices automatically, set an explicit provider allowlist
+on the configuration passed to `TradingAgentsGraph` (or `analysis_run`):
+
+```python
+config["evidence_price_providers"] = ["yfinance"]
+```
+
+The default is `[]`: no price payload is retained. Add a provider only when its
+terms and your account permit retaining these normalized prices. This option does
+not grant retention rights. Unlisted providers may still serve analyses but are
+not archived. Objects and references are stored at `<results_dir>/evidence`.
+
+Within an active analysis run, successful stock-tool, snapshot and typed-price
+queries are captured after validation. The instant API records its final cutoff.
+Settlement queries are tagged `outcome`, including the benchmark. The manifest
+records the allowlist and a `price_evidence` sequence containing hashes, purposes,
+providers and symbols. The sequence reflects capture completion order, not tool
+start order. Repeated identical objects can have multiple manifest entries.
+
+Each capture checkpoints the manifest under a run-local lock. Requested capture
+failures raise `EvidenceCaptureError`, including during settlement; they do not
+silently trigger another vendor or present the analysis as fully recorded. The
+failed run retains its failure class. A crash after object creation but before a
+manifest checkpoint can leave an orphan object or run reference; this is not a
+transaction across all files. Existing evidence is not garbage-collected.
+
+Capture context is scoped to the run and restored on exit. LangGraph propagates
+context to its tool tasks; custom thread pools must explicitly copy context.
+Calls outside an active analysis run continue without automatic capture. No raw
+HTTP responses, other data families or LLM messages are captured in this delivery.

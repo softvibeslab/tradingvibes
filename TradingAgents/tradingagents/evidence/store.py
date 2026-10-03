@@ -20,7 +20,21 @@ _RUN = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
 _PURPOSES = {"analysis", "outcome"}
 
 
+def _validate_json(value):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise TypeError("JSON object keys must be strings")
+            _validate_json(child)
+    elif isinstance(value, list):
+        for child in value:
+            _validate_json(child)
+    elif value is not None and not isinstance(value, (str, bool, int, float)):
+        raise TypeError("evidence values must be native JSON types")
+
+
 def _encode(value: dict) -> bytes:
+    _validate_json(value)
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
                       allow_nan=False).encode("utf-8")
 

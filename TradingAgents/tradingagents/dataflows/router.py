@@ -44,7 +44,7 @@ def _stock_text(provider, symbol, start_date, end_date):
     # Lazy import: prices uses this module's shared fallback policy.
     from tradingagents.dataflows.prices import fetch_provider_history
 
-    return fetch_provider_history(provider, symbol, start_date, end_date, max_stale_days=10).to_text()
+    return fetch_provider_history(provider, symbol, start_date, end_date, max_stale_days=10)
 
 
 def _alpha_stock_text(symbol, start_date, end_date):
@@ -214,7 +214,14 @@ def no_data_available(error: NoMarketDataError) -> str:
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
     get_category_for_method(method)
-    return route_implementations(method, VENDOR_METHODS[method], args, kwargs)
+    result = route_implementations(method, VENDOR_METHODS[method], args, kwargs)
+    if method == "get_stock_data":
+        from tradingagents.dataflows.prices import PriceHistory
+        from tradingagents.evidence.capture import capture_prices
+
+        if isinstance(result, PriceHistory):
+            return capture_prices(result).to_text()
+    return result
 
 
 def route_implementations(method, implementations, args, kwargs, *, strict=False):

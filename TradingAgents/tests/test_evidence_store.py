@@ -70,6 +70,7 @@ def test_invalid_json_does_not_write_partial_objects(tmp_path):
 
 def test_concurrent_writes_do_not_lose_references(tmp_path):
     store = EvidenceStore(tmp_path)
+
     def write(i):
         return store.put(run_id="run1", tool="test", payload={"close": i % 4})
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -99,6 +100,7 @@ def test_typed_price_roundtrip_never_calls_provider(tmp_path, monkeypatch):
         bars=(PriceBar(date(2026, 1, 5), 101.123456), PriceBar(date(2026, 1, 6), 102.)),
         calendar_name="XNYS", cutoff_at=datetime(2026, 1, 6, 23, tzinfo=UTC),
     )
+
     def refuse(*args, **kwargs):
         raise AssertionError("replay must not fetch data")
     monkeypatch.setattr("tradingagents.dataflows.prices.fetch_price_frame", refuse)
@@ -110,3 +112,10 @@ def test_typed_price_roundtrip_never_calls_provider(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="purpose"):
         replay_prices(store, outcome)
     assert replay_prices(store, outcome, purpose="outcome") == history
+
+
+@pytest.mark.parametrize("payload", [{1: "value"}, {"rows": [{2: "value"}]}, {"tuple": (1, 2)}])
+def test_non_json_payloads_are_rejected_without_coercion(tmp_path, payload):
+    with pytest.raises(TypeError):
+        EvidenceStore(tmp_path).put(run_id="run1", tool="test", payload=payload)
+    assert not list(tmp_path.iterdir())

@@ -160,7 +160,7 @@ def fetch_provider_history(provider, symbol, start_date, end_date, *, max_stale_
     return history
 
 
-def get_price_history(symbol: str, start_date: str, end_date: str, *, max_stale_days=None) -> PriceHistory:
+def get_price_history(symbol: str, start_date: str, end_date: str, *, max_stale_days=None, _capture=True) -> PriceHistory:
     """Use exactly the get_stock_data vendor chain, including tool overrides."""
     from functools import partial
 
@@ -171,15 +171,21 @@ def get_price_history(symbol: str, start_date: str, end_date: str, *, max_stale_
         provider: partial(fetch_provider_history, provider, max_stale_days=max_stale_days)
         for provider in ("alpha_vantage", "yfinance")
     }
-    return route_implementations(
+    history = route_implementations(
         "get_stock_data", implementations, (symbol, start_date, end_date), {}, strict=True,
     )
+    from tradingagents.evidence.capture import capture_prices
+
+    return capture_prices(history) if _capture else history
 
 
 def get_closes(symbol: str, start_date: str, end_date: str) -> pd.Series:
     """Outcome-only daily closes; preserve the existing EXCLUSIVE end contract."""
     end = date.fromisoformat(end_date) - timedelta(days=1)
-    history = get_price_history(symbol, start_date, str(end))
+    from tradingagents.evidence.capture import outcome_prices
+
+    with outcome_prices():
+        history = get_price_history(symbol, start_date, str(end))
     return pd.Series([b.close for b in history.bars],
                      index=pd.DatetimeIndex([b.session for b in history.bars]), dtype=float)
 
@@ -200,5 +206,7 @@ def get_closed_price_history(symbol: str, start_date: str, cutoff: datetime) -> 
     end = latest_closed_session(calendar, cutoff)
     if date.fromisoformat(start_date) > end:
         raise NoMarketDataError(symbol, detail="no closed session in requested window")
-    history = get_price_history(symbol, start_date, str(end), max_stale_days=10)
-    return replace(history, cutoff_at=cutoff.astimezone(UTC))
+    from tradingagents.evidence.capture import capture_prices
+
+    history = get_price_history(symbol, start_date, str(end), max_stale_days=10, _capture=False)
+    return capture_prices(replace(history, cutoff_at=cutoff.astimezone(UTC)))
