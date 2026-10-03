@@ -1,8 +1,8 @@
 id,fase,entregable,depende_de,aceptacion,estado
-TA-001,F0,Baseline y ADR de alcance,,Baseline documentado; cambios del usuario preservados,propuesto
-TA-002,F1,uv lock y CI compatible,TA-001,Instalación reproducible y matriz Python pasa,propuesto
-TA-003,F1,Manifiesto de corrida y saneamiento,TA-001,Run completo/fallido trazable sin secretos,propuesto
-TA-004,F1,Auditoría de dependencias,TA-002,Auditoría sobre resolución real y excepciones explícitas,propuesto
+TA-001,F0,Baseline y ADR de alcance,,Baseline documentado; cambios del usuario preservados,baseline y ADR implementados; presupuesto/cuentas pendientes
+TA-002,F1,uv lock y CI compatible,TA-001,Instalación reproducible y matriz Python pasa,implementado; matriz local 3.11-3.14 validada; CI remoto pendiente
+TA-003,F1,Manifiesto de corrida y saneamiento,TA-001,Run completo/fallido trazable sin secretos,manifiesto v1 implementado; prompts efectivos y modelos resueltos pendientes
+TA-004,F1,Auditoría de dependencias,TA-002,Auditoría sobre resolución real y excepciones explícitas,implementado; auditoria local sin vulnerabilidades conocidas
 TA-005,F2,Contrato tipado y puente de texto,TA-003,Renders compatibles y provenance explícita,propuesto
 TA-006,F2,Unificar precios snapshot y settlement,TA-005,Feed elegido respetado; outcomes aislados del analista,propuesto
 TA-007,F2,Validación tabular y calendarios,TA-005,Casos DST splits festivos y datos inválidos cubiertos,propuesto

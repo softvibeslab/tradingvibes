@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Changes that need action when upgrading are listed under "Upgrading from" in their release.
 
+## [Unreleased]
+
+### Added
+
+- Locked development environment and root-workspace CI with dependency auditing.
+- Atomic per-attempt manifests for CLI/API analysis, with source/environment hashes,
+  safe settings, context fingerprints and success/failure/cancellation status.
+- Run identifiers in completed analysis reports.
+
+### Fixed
+
+- Use the portable `errno.EDEADLK` constant in the Windows lock implementation
+  and its cross-platform tests, allowing the baseline suite to run on macOS.
+
 ## [0.5.2] — 2026-09-29
 
 Parallel analysts, unattended CLI runs, reports that record what produced them,
