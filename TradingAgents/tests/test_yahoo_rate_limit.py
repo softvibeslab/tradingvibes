@@ -188,15 +188,15 @@ def test_a_yahoo_request_that_fails_is_unavailable_not_absent(yahoo, call):
 ])
 def test_a_snapshot_with_no_rows_is_reported_not_raised(yahoo, frame):
     """An exception out of a tool ends the run; no rows is an answer about the symbol."""
+    from tradingagents.dataflows import prices
     from tradingagents.dataflows.errors import NoMarketDataError
-    from tradingagents.dataflows.vendors.yahoo import snapshot
 
-    def load(symbol, as_of_date, **kwargs):
+    def load(symbol, start_date, end_date):
         if frame.empty:
             raise NoMarketDataError(symbol, symbol, "no price rows")
         return frame
 
-    yahoo.setattr(snapshot, "load_ohlcv", load)
+    yahoo.setattr(prices, "fetch_price_frame", load)
 
     out = get_verified_market_snapshot.func("ZZZZ", DAY, trade_date=DAY)
 

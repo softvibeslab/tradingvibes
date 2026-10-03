@@ -4,8 +4,8 @@ it against its benchmark and record a reflection on it in the memory log."""
 import logging
 from datetime import datetime, timedelta
 
+from tradingagents.dataflows.prices import get_closes
 from tradingagents.dataflows.symbols import normalize_symbol
-from tradingagents.dataflows.vendors.yahoo.market import get_closes
 
 logger = logging.getLogger(__name__)
 

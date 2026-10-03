@@ -15,7 +15,6 @@ from tradingagents.dataflows.vendors.alpha_vantage import (
     get_indicator as get_alpha_vantage_indicator,
     get_insider_transactions as get_alpha_vantage_insider_transactions,
     get_news as get_alpha_vantage_news,
-    get_stock as get_alpha_vantage_stock,
 )
 from tradingagents.dataflows.vendors.fred import get_macro_data as get_fred_macro_data
 from tradingagents.dataflows.vendors.polymarket import (
@@ -35,11 +34,31 @@ from tradingagents.dataflows.vendors.yahoo.fundamentals import (
 )
 from tradingagents.dataflows.vendors.yahoo.market import (
     get_stock_stats_indicators_window,
-    get_YFin_data_online,
 )
 from tradingagents.dataflows.vendors.yahoo.news import get_global_news_yfinance, get_news_yfinance
 
 logger = logging.getLogger(__name__)
+
+
+def _stock_text(provider, symbol, start_date, end_date):
+    # Lazy import: prices uses this module's shared fallback policy.
+    from datetime import date
+
+    from tradingagents.dataflows.prices import analyst_price_end, fetch_provider_history
+
+    end = analyst_price_end(symbol, date.fromisoformat(end_date))
+    return fetch_provider_history(
+        provider, symbol, start_date, str(end), max_stale_days=10,
+    ).to_text()
+
+
+def _alpha_stock_text(symbol, start_date, end_date):
+    return _stock_text("alpha_vantage", symbol, start_date, end_date)
+
+
+def _yahoo_stock_text(symbol, start_date, end_date):
+    return _stock_text("yfinance", symbol, start_date, end_date)
+
 
 # Tools organized by category
 TOOLS_CATEGORIES = {
@@ -97,8 +116,8 @@ OPTIONAL_CATEGORIES = {"macro_data", "prediction_markets"}
 VENDOR_METHODS = {
     # core_stock_apis
     "get_stock_data": {
-        "alpha_vantage": get_alpha_vantage_stock,
-        "yfinance": get_YFin_data_online,
+        "alpha_vantage": _alpha_stock_text,
+        "yfinance": _yahoo_stock_text,
     },
     # technical_indicators
     "get_indicators": {
@@ -199,6 +218,12 @@ def no_data_available(error: NoMarketDataError) -> str:
 
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
+    get_category_for_method(method)
+    return route_implementations(method, VENDOR_METHODS[method], args, kwargs)
+
+
+def route_implementations(method, implementations, args, kwargs, *, strict=False):
+    """Shared fallback policy; typed callers raise instead of receiving prose."""
     category = get_category_for_method(method)
     vendor_config = get_vendor(category, method)
     primary_vendors = [v.strip() for v in vendor_config.split(',')]
@@ -206,7 +231,7 @@ def route_to_vendor(method: str, *args, **kwargs):
     if method not in VENDOR_METHODS:
         raise ValueError(f"Method '{method}' not supported")
 
-    all_available_vendors = list(VENDOR_METHODS[method].keys())
+    all_available_vendors = list(implementations.keys())
 
     # The configured vendor list IS the chain: we do NOT silently fall back to
     # vendors the user did not choose (#988/#289) — that returned data from an
@@ -215,7 +240,7 @@ def route_to_vendor(method: str, *args, **kwargs):
     # The "default" sentinel (no explicit config) uses all available vendors.
     explicit = [v for v in primary_vendors if v and v != "default"]
     if explicit:
-        vendor_chain = [v for v in explicit if v in VENDOR_METHODS[method]]
+        vendor_chain = [v for v in explicit if v in implementations]
         if not vendor_chain:
             raise ValueError(
                 f"Configured vendor(s) {explicit} not available for '{method}'. "
@@ -229,7 +254,7 @@ def route_to_vendor(method: str, *args, **kwargs):
     failed: Exception | None = None     # a vendor that raised something untyped
     first_error: Exception | None = None
     for vendor in vendor_chain:
-        vendor_impl = VENDOR_METHODS[method][vendor]
+        vendor_impl = implementations[vendor]
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
 
         try:
@@ -263,8 +288,12 @@ def route_to_vendor(method: str, *args, **kwargs):
     # report the vendors as the problem, not the instrument. It must not end
     # the run either.
     if last_unavailable is not None:
+        if strict:
+            raise last_unavailable
         return vendor_unavailable(method, last_unavailable)
     if failed is not None and last_no_data is not None:
+        if strict:
+            raise VendorUnavailableError(str(failed)) from failed
         return vendor_unavailable(method, failed)
 
     # Every vendor that answered reported "no data": the symbol is genuinely unavailable.
@@ -272,6 +301,8 @@ def route_to_vendor(method: str, *args, **kwargs):
     # empty string, so the agent reports "unavailable" instead of inventing a
     # value. This takes precedence over incidental fallback errors.
     if last_no_data is not None:
+        if strict:
+            raise last_no_data
         if first_error is not None:
             # A vendor also hit a real error; surface it in logs so the no-data
             # verdict can't hide a broken primary (network/auth/etc.).

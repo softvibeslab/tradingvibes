@@ -1,6 +1,8 @@
 # Plan de implementación de TradingAgents
 
-Estado: propuesta ejecutable; ninguna funcionalidad de este documento se ha implementado aún.
+Estado: F0/F1 implementadas con validación local; CI remota bloqueada por facturación. F2 cerrada en lo esencial: contrato de precios, calendarios, disponibilidad (`availability_basis` / `available_not_before` ≠ retrieval), CLI `--cutoff`/`--calendar`, fundamentals tipados (SEC filing_date) y macro FRED con vintage. Pendiente menor F2→F5: unificar tool de indicadores y hashes de payload. Siguiente: F3 evidencia/replay.
+
+Detalle de esta entrega: [contrato de precios](../../TradingAgents/docs/price-contract.md).
 Base: [investigación del repositorio](2026-10-03_informe.md), checkout `8b22d43d01d9ddda5d686d093d5385884622f3de`.
 
 ## Objetivo y alcance

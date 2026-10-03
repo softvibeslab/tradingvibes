@@ -81,6 +81,32 @@ def parse_analysis_date(value: str) -> str:
     return day.isoformat()
 
 
+def parse_analysis_cutoff(value: str) -> datetime.datetime:
+    """Aware ISO-8601 instant; naive values are rejected."""
+    try:
+        instant = datetime.datetime.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise ValueError(
+            f"not an ISO datetime: {value!r}; use e.g. 2026-11-27T12:59:59-05:00"
+        ) from exc
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("cutoff must include a timezone offset or name")
+    return instant
+
+
+def parse_price_calendar(value: str) -> str:
+    """Exchange calendar name accepted by exchange_calendars (e.g. XNYS)."""
+    name = value.strip().upper()
+    if not name or any(c.isspace() for c in name):
+        raise ValueError(f"not a calendar name: {value!r}")
+    try:
+        import exchange_calendars as xcals
+        xcals.get_calendar(name)
+    except Exception as exc:
+        raise ValueError(f"unknown exchange calendar {name!r}") from exc
+    return name
+
+
 def parse_analysts(value: str, asset_type: AssetType) -> list[AnalystType]:
     """Comma-separated analyst names, in the canonical order, checked against the asset."""
     # "sentiment" is the name users see; the analyst's key is "social".

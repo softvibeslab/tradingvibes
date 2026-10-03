@@ -1018,7 +1018,7 @@ def test_a_longer_window_asks_for_enough_price_history(monkeypatch):
         def __init__(self, symbol):
             self.symbol = symbol
 
-        def history(self, start, end):
+        def history(self, start, end, **kwargs):
             asked["start"], asked["end"] = start, end
             import pandas as pd
             days = pd.bdate_range(start, end)

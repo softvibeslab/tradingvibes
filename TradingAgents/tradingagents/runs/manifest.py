@@ -23,6 +23,7 @@ _SETTING_KEYS = (
     "max_risk_discuss_rounds", "max_tool_rounds", "max_recur_limit",
     "google_thinking_level", "openai_reasoning_effort", "anthropic_effort",
     "checkpoint_enabled", "holding_period_days", "benchmark_ticker",
+    "price_max_missing_sessions", "analysis_cutoff",
 )
 
 
@@ -42,7 +43,7 @@ def _public_value(value):
 def safe_settings(config: dict) -> dict:
     """Allowlist operational settings; do not serialize config or environment wholesale."""
     result = {key: _public_value(config[key]) for key in _SETTING_KEYS if key in config}
-    for key in ("data_vendors", "tool_vendors", "benchmark_map"):
+    for key in ("data_vendors", "tool_vendors", "benchmark_map", "price_calendars"):
         result[key] = {
             name: _public_value(value) for name, value in (config.get(key) or {}).items()
             if isinstance(name, str) and not any(

@@ -20,7 +20,7 @@ from pydantic import Field
 from tradingagents.agents import context, schemas
 from tradingagents.agents.analysts import sentiment_analyst
 from tradingagents.dataflows import router
-from tradingagents.dataflows.vendors.yahoo import market as yahoo_market, snapshot
+from tradingagents.dataflows.vendors.yahoo import market as yahoo_market
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph import trading_graph
 
@@ -110,7 +110,7 @@ def offline(monkeypatch, tmp_path):
         "Date": pd.bdate_range(end=TRADE_DATE, periods=60),
         "Open": 100.0, "High": 101.0, "Low": 99.0, "Close": 100.5, "Volume": 1_000_000,
     })
-    monkeypatch.setattr(snapshot, "load_ohlcv",
+    monkeypatch.setattr("tradingagents.dataflows.prices.fetch_price_frame",
                         lambda *a, **k: called.add("ohlcv") or prices.copy())
     monkeypatch.setattr(sentiment_analyst, "fetch_stocktwits_messages", lambda *a, **k: "no posts")
     monkeypatch.setattr(sentiment_analyst, "fetch_reddit_posts", lambda *a, **k: "no posts")
