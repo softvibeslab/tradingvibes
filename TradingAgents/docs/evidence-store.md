@@ -43,13 +43,13 @@ Hashes detect accidental modification, not malicious replacement of both objects
 and references. The store is not an append-only security boundary. Run IDs and
 object IDs are validated to avoid path traversal through API parameters.
 
-Remaining F3 work: capture of other families, tool invocation start ordering,
+Remaining F3 work: typed family integration and additional families, tool invocation start ordering,
 raw response permissions, replay routing,
 fundamental/macro payload schemas, schema migration, indexing/Parquet/DuckDB,
 retention management, and full graph reproducibility. The archive does not make
 unknown publication timestamps known or remove corporate-action revision bias.
 
-Local validation after capture integration: 1,206 tests and 91 subtests passed; one integration test
+Local validation after routed response replay: 1,216 tests and 91 subtests passed; one integration test
 deselected under the offline policy. Ruff passed.
 
 ## Opt-in capture during analysis
@@ -83,4 +83,54 @@ transaction across all files. Existing evidence is not garbage-collected.
 Capture context is scoped to the run and restored on exit. LangGraph propagates
 context to its tool tasks; custom thread pools must explicitly copy context.
 Calls outside an active analysis run continue without automatic capture. No raw
-HTTP responses, other data families or LLM messages are captured in this delivery.
+HTTP responses or LLM messages are captured. Fundamental/macro text capture is
+described below.
+
+## Fundamental and macro response capture and replay
+
+A separate per-tool allowlist enables exact rendered response capture:
+
+```python
+config["evidence_tool_providers"] = {
+    "get_balance_sheet": ["sec_edgar"],
+    "get_income_statement": ["sec_edgar"],
+    "get_cashflow": ["sec_edgar"],
+    "get_macro_indicators": ["fred"],
+}
+```
+
+The default `{}` retains no such responses. The supported methods are those above
+and `get_fundamentals`; Yahoo and Alpha Vantage are also supported where the router
+provides them. Provider retention permissions still apply. This captures text
+returned successfully by the provider implementation, including any textual
+unavailability response; raised vendor failures are not captured. It records the
+actual successful provider, exact positional/keyword arguments, and retrieval
+time, then checkpoints `tool_evidence` references in the run manifest. This is a
+text compatibility layer, not the new typed fundamental/macro contracts.
+
+Availability metadata remains `unknown` at this generic boundary. A filing date
+or vintage mentioned in the response is preserved as text, not upgraded to a
+verified timestamp by the archive. Arguments and returned text are stored as
+supplied; do not pass credentials in tool arguments. No raw requests or headers
+are captured automatically.
+
+To reproduce the selected routed calls:
+
+```python
+from tradingagents.evidence.tools import replay_tools
+from tradingagents.dataflows.router import route_to_vendor
+
+ids = [ref["evidence_id"] for ref in manifest["tool_evidence"]]
+with replay_tools(store, ids):
+    text = route_to_vendor("get_balance_sheet", "AAPL", "2026-01-06")
+```
+
+The method and argument form must exactly match the archived request (keyword
+order is irrelevant; positional versus keyword form is distinct). Choose explicit
+IDs if one request has multiple differing responses; ambiguous selections are
+rejected. Missing, corrupt, unsupported or outcome evidence fails explicitly.
+Nested replay contexts restore the outer selection. Routed calls not selected in
+the context fail instead of invoking a live provider; direct typed price routing
+is also blocked in that context. Use `replay_prices` separately for stored price
+histories. Custom code calling provider clients directly is not sandboxed by this
+context. Whole-graph offline execution and LLM response replay remain pending.

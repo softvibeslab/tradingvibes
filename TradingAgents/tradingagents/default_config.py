@@ -160,6 +160,7 @@ def build_default_config() -> dict:
         "price_calendars": {},
         # Opt-in only for providers whose normalized prices you may retain.
         "evidence_price_providers": [],
+        "evidence_tool_providers": {},
         "price_max_missing_sessions": 1,
         # Tool-level configuration (takes precedence over category-level)
         "tool_vendors": {
