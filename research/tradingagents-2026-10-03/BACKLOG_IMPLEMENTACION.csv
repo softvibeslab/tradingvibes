@@ -7,8 +7,8 @@ TA-005,F2,Contrato tipado y puente de texto,TA-003,Renders compatibles y provena
 TA-006,F2,Unificar precios snapshot y settlement,TA-005,Feed elegido respetado; outcomes aislados del analista,en_curso; primera entrega integrada; cobertura restante documentada
 TA-007,F2,Validación tabular y calendarios,TA-005,Casos DST splits festivos y datos inválidos cubiertos,en_curso; primera entrega integrada; cobertura restante documentada
 TA-007b,F2,Disponibilidad CLI cutoff fundamentals/macro,TA-007,availability≠retrieval; --cutoff/--calendar; SEC/FRED tipados,hecho
-TA-008,F3,Archivo inmutable y consultas,TA-005,Hashes y escritura atómica; permisos de almacenamiento,propuesto
-TA-009,F3,Replay de datos y respuestas,TA-008,Sin red; evidencia ausente falla explícitamente,propuesto
+TA-008,F3,Archivo inmutable y consultas,TA-005,Hashes y escritura atómica; permisos de almacenamiento,en_curso; archivo JSON y captura opcional de precios y textos fundamentales/macro implementados; consultas avanzadas pendientes
+TA-009,F3,Replay de datos y respuestas,TA-008,Sin red; evidencia ausente falla explícitamente,en_curso; replay de precios y respuestas de herramientas implementado; replay de grafo y LLM pendiente
 TA-010,F4,Dataset y evaluadores determinísticos,TA-007;TA-009,Casos fijos y cutoff/citas/números evaluados,propuesto
 TA-011,F4,Retornos numéricos y lectura legado,TA-003;TA-006,Métricas precisas; logs legados con precisión declarada,propuesto
 TA-012,F4,Observabilidad y presupuesto,TA-003,Trazas correlacionadas y costos desconocidos explícitos,propuesto

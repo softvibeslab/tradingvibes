@@ -49,7 +49,7 @@ def _stock_text(provider, symbol, start_date, end_date):
     end = analyst_price_end(symbol, date.fromisoformat(end_date))
     return fetch_provider_history(
         provider, symbol, start_date, str(end), max_stale_days=10,
-    ).to_text()
+    )
 
 
 def _alpha_stock_text(symbol, start_date, end_date):
@@ -218,12 +218,27 @@ def no_data_available(error: NoMarketDataError) -> str:
 
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
+    from tradingagents.evidence.tools import replay_response
+
+    replayed, response = replay_response(method, args, kwargs)
+    if replayed:
+        return response
     get_category_for_method(method)
-    return route_implementations(method, VENDOR_METHODS[method], args, kwargs)
+    result = route_implementations(method, VENDOR_METHODS[method], args, kwargs)
+    if method == "get_stock_data":
+        from tradingagents.dataflows.prices import PriceHistory
+        from tradingagents.evidence.capture import capture_prices
+
+        if isinstance(result, PriceHistory):
+            return capture_prices(result).to_text()
+    return result
 
 
 def route_implementations(method, implementations, args, kwargs, *, strict=False):
     """Shared fallback policy; typed callers raise instead of receiving prose."""
+    from tradingagents.evidence.tools import require_live_mode
+
+    require_live_mode()
     category = get_category_for_method(method)
     vendor_config = get_vendor(category, method)
     primary_vendors = [v.strip() for v in vendor_config.split(',')]
@@ -258,7 +273,7 @@ def route_implementations(method, implementations, args, kwargs, *, strict=False
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
 
         try:
-            return impl_func(*args, **kwargs)
+            result = impl_func(*args, **kwargs)
         except VendorUnavailableError as e:
             logger.warning("Vendor %r unavailable for %s: %s; trying next vendor.", vendor, method, e)
             # Kept so an all-unavailable chain can say the vendor was the
@@ -282,6 +297,12 @@ def route_implementations(method, implementations, args, kwargs, *, strict=False
                 first_error = e
             failed = e
             continue
+
+        else:
+            # Storage errors are not vendor failures and must not trigger fallback.
+            from tradingagents.evidence.capture import capture_tool_response
+
+            return capture_tool_response(method, vendor, args, kwargs, result)
 
     # A vendor that throttled or failed the request never said whether it has
     # the symbol, so no other vendor's "no data" can speak for the whole chain:

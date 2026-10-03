@@ -138,7 +138,10 @@ def analysis_run(config: dict, ticker: str, trade_date: str, analysts, portfolio
     _write(path, manifest)
     token = _CURRENT.set(manifest)
     try:
-        yield manifest
+        from tradingagents.evidence.capture import capture_run
+
+        with capture_run(config, manifest, lambda: _write(path, manifest)):
+            yield manifest
     except BaseException as exc:
         manifest["status"] = "cancelled" if isinstance(exc, (KeyboardInterrupt, GeneratorExit)) else "failed"
         # Error messages can contain API keys, request headers and endpoints.

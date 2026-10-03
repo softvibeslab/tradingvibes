@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from tradingagents.dataflows.prices import get_closes
 from tradingagents.dataflows.symbols import normalize_symbol
+from tradingagents.evidence.capture import EvidenceCaptureError
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,8 @@ def fetch_returns(
         # injecting the lesson (#1251).
         resolution_date = exit_.strftime("%Y-%m-%d")
         return raw, alpha, holding_days, resolution_date
+    except EvidenceCaptureError:
+        raise
     except Exception as e:
         logger.warning(
             "Could not resolve outcome for %s on %s vs %s (will retry next run): %s",

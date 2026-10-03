@@ -158,6 +158,9 @@ def build_default_config() -> dict:
         # No exchange is guessed from ticker syntax. Unmapped symbols retain
         # calendar-day freshness. Example: {"AAPL": "XNYS", "SPY": "XNYS"}.
         "price_calendars": {},
+        # Opt-in only for providers whose normalized prices you may retain.
+        "evidence_price_providers": [],
+        "evidence_tool_providers": {},
         "price_max_missing_sessions": 1,
         # Optional aware ISO instant for analyst price clamping (CLI --cutoff).
         # Settlement must ignore this. Requires price_calendars for the ticker.
