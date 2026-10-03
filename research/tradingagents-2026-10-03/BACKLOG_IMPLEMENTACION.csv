@@ -3,9 +3,9 @@ TA-001,F0,Baseline y ADR de alcance,,Baseline documentado; cambios del usuario p
 TA-002,F1,uv lock y CI compatible,TA-001,Instalación reproducible y matriz Python pasa,implementado; matriz local 3.11-3.14 validada; CI remoto bloqueado por facturacion GitHub
 TA-003,F1,Manifiesto de corrida y saneamiento,TA-001,Run completo/fallido trazable sin secretos,manifiesto v1 implementado; prompts efectivos y modelos resueltos pendientes
 TA-004,F1,Auditoría de dependencias,TA-002,Auditoría sobre resolución real y excepciones explícitas,implementado; auditoria local sin vulnerabilidades conocidas
-TA-005,F2,Contrato tipado y puente de texto,TA-003,Renders compatibles y provenance explícita,propuesto
-TA-006,F2,Unificar precios snapshot y settlement,TA-005,Feed elegido respetado; outcomes aislados del analista,propuesto
-TA-007,F2,Validación tabular y calendarios,TA-005,Casos DST splits festivos y datos inválidos cubiertos,propuesto
+TA-005,F2,Contrato tipado y puente de texto,TA-003,Renders compatibles y provenance explícita,en_curso
+TA-006,F2,Unificar precios snapshot y settlement,TA-005,Feed elegido respetado; outcomes aislados del analista,en_curso
+TA-007,F2,Validación tabular y calendarios,TA-005,Casos DST splits festivos y datos inválidos cubiertos,en_curso
 TA-008,F3,Archivo inmutable y consultas,TA-005,Hashes y escritura atómica; permisos de almacenamiento,propuesto
 TA-009,F3,Replay de datos y respuestas,TA-008,Sin red; evidencia ausente falla explícitamente,propuesto
 TA-010,F4,Dataset y evaluadores determinísticos,TA-007;TA-009,Casos fijos y cutoff/citas/números evaluados,propuesto

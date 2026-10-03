@@ -15,6 +15,18 @@ from tradingagents.dataflows.vendors.yahoo.ohlcv import _assert_ohlcv_not_stale,
 logger = logging.getLogger(__name__)
 
 
+def fetch_price_frame(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+    """Full precision adjusted prices, with an inclusive end date."""
+    canonical = normalize_symbol(symbol)
+    end = (datetime.strptime(end_date, "%Y-%m-%d") + relativedelta(days=1)).strftime("%Y-%m-%d")
+    data = yf_retry(lambda: yf.Ticker(canonical).history(
+        start=start_date, end=end, auto_adjust=True, actions=False,
+    ))
+    if data is None or data.empty:
+        raise_for_empty(symbol, canonical, f"rows between {start_date} and {end_date}")
+    return data.rename_axis("Date").reset_index()
+
+
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
