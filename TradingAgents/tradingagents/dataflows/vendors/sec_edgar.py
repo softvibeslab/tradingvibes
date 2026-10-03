@@ -187,7 +187,15 @@ def _as_of(facts: dict, tags: tuple[str, ...], as_of_date: str, spans: tuple[tup
     return dict(sorted(values.items())), chosen_unit
 
 
-def _statement(kind: str, ticker: str, freq: str, as_of_date: str, title: str) -> str:
+def build_statement(kind: str, ticker: str, freq: str, as_of_date: str, title: str):
+    """Typed statement; facts with ``filed`` after ``as_of_date`` are excluded."""
+    from tradingagents.dataflows.fundamentals import (
+        FundamentalStatement,
+        StatementColumn,
+        StatementRow,
+        utc_now,
+    )
+
     as_of_date = as_of_date or datetime.now().strftime("%Y-%m-%d")
     cik = cik_for(ticker)
     if cik is None:
@@ -217,24 +225,39 @@ def _statement(kind: str, ticker: str, freq: str, as_of_date: str, title: str) -
     if not periods:
         raise NoMarketDataError(ticker, ticker, f"no {freq} {title.lower()} filed by {as_of_date}")
 
-    header = (
-        f"# {title} for {ticker.upper()} ({freq}), USD in millions unless the row says otherwise\n"
-        f"# SEC EDGAR facts filed on or before {as_of_date}, at the values filed then\n\n"
+    columns = tuple(
+        StatementColumn(period_end=date.fromisoformat(end), span_label=names[index])
+        for end, index in periods
     )
-    rows = [",".join([""] + [end + names[index] for end, index in periods])]
+    rows = []
     for label, (values, unit) in lines.items():
-        # Every row spans the same columns, or a reader lines the table up wrong.
         if not values:
-            rows.append(",".join([label] + ["unavailable (not tagged by this filer)"] * len(periods)))
-            continue
-        name = label if unit == "USD" else f"{label} ({unit})"
-        # Plain numbers: a thousands separator would split the CSV field.
-        cells = []
-        for end, index in periods:
-            value = values.get((end, index)) if chosen[label].get(end) == index else None
-            cells.append("" if value is None else f"{value / 1e6:.0f}" if unit == "USD" else f"{value:.2f}")
-        rows.append(",".join([name] + cells))
-    return header + "\n".join(rows) + "\n"
+            cells = tuple("unavailable (not tagged by this filer)" for _ in periods)
+        else:
+            cells = []
+            for end, index in periods:
+                value = values.get((end, index)) if chosen[label].get(end) == index else None
+                cells.append(
+                    "" if value is None else f"{value / 1e6:.0f}" if unit == "USD" else f"{value:.2f}"
+                )
+            cells = tuple(cells)
+        rows.append(StatementRow(label=label, unit=unit, cells=cells))
+    return FundamentalStatement(
+        ticker=ticker.upper(),
+        kind=kind,
+        frequency=freq,
+        as_of_date=date.fromisoformat(as_of_date),
+        provider="sec_edgar",
+        title=title,
+        columns=columns,
+        rows=tuple(rows),
+        retrieved_at=utc_now(),
+        availability_basis="filing_date",
+    )
+
+
+def _statement(kind: str, ticker: str, freq: str, as_of_date: str, title: str) -> str:
+    return build_statement(kind, ticker, freq, as_of_date, title).to_text()
 
 
 def get_balance_sheet(ticker: str, freq: str = "quarterly", as_of_date: str | None = None) -> str:

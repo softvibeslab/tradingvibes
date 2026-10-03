@@ -10,8 +10,8 @@ def archive_prices(store: EvidenceStore, history: PriceHistory, *, run_id: str,
                    purpose: str = "analysis") -> str:
     """Archive permitted normalized prices; the caller selects the run and purpose."""
     payload = asdict(history)
-    for field in ("start", "end", "retrieved_at", "cutoff_at"):
-        if payload[field] is not None:
+    for field in ("start", "end", "retrieved_at", "cutoff_at", "available_not_before"):
+        if payload.get(field) is not None:
             payload[field] = payload[field].isoformat()
     payload["bars"] = [{**bar, "session": bar["session"].isoformat()} for bar in payload["bars"]]
     return store.put(run_id=run_id, tool="daily_price_history", payload=payload, purpose=purpose)
@@ -27,8 +27,8 @@ def replay_prices(store: EvidenceStore, evidence_id: str, *, purpose: str = "ana
         raise ValueError("unsupported price schema")
     for field in ("start", "end"):
         payload[field] = date.fromisoformat(payload[field])
-    for field in ("retrieved_at", "cutoff_at"):
-        if payload[field] is not None:
+    for field in ("retrieved_at", "cutoff_at", "available_not_before"):
+        if payload.get(field) is not None:
             payload[field] = datetime.fromisoformat(payload[field])
     payload["bars"] = tuple(
         PriceBar(**{**bar, "session": date.fromisoformat(bar["session"])}) for bar in payload["bars"]

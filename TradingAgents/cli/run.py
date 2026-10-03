@@ -92,6 +92,12 @@ def _build_run_config(selections: dict, checkpoint: bool | None) -> dict:
     # the flag preserves TRADINGAGENTS_CHECKPOINT_ENABLED / the default (#976).
     if checkpoint is not None:
         config["checkpoint_enabled"] = checkpoint
+    if selections.get("analysis_cutoff"):
+        config["analysis_cutoff"] = selections["analysis_cutoff"]
+    if selections.get("price_calendar"):
+        calendars = dict(config.get("price_calendars") or {})
+        calendars[selections["ticker"].strip().upper()] = selections["price_calendar"]
+        config["price_calendars"] = calendars
     return config
 
 

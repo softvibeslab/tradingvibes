@@ -23,7 +23,7 @@ _SETTING_KEYS = (
     "max_risk_discuss_rounds", "max_tool_rounds", "max_recur_limit",
     "google_thinking_level", "openai_reasoning_effort", "anthropic_effort",
     "checkpoint_enabled", "holding_period_days", "benchmark_ticker",
-    "price_max_missing_sessions",
+    "price_max_missing_sessions", "analysis_cutoff",
 )
 
 

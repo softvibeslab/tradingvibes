@@ -42,9 +42,14 @@ logger = logging.getLogger(__name__)
 
 def _stock_text(provider, symbol, start_date, end_date):
     # Lazy import: prices uses this module's shared fallback policy.
-    from tradingagents.dataflows.prices import fetch_provider_history
+    from datetime import date
 
-    return fetch_provider_history(provider, symbol, start_date, end_date, max_stale_days=10)
+    from tradingagents.dataflows.prices import analyst_price_end, fetch_provider_history
+
+    end = analyst_price_end(symbol, date.fromisoformat(end_date))
+    return fetch_provider_history(
+        provider, symbol, start_date, str(end), max_stale_days=10,
+    )
 
 
 def _alpha_stock_text(symbol, start_date, end_date):

@@ -106,3 +106,15 @@ def test_nested_disabled_run_does_not_inherit_capture(config):
         prices.get_price_history("AAPL", "2026-01-05", "2026-01-06")
     assert inner["price_evidence"] == []
     assert len(outer["price_evidence"]) == 1
+
+
+def test_cli_cutoff_and_availability_survive_integrated_router(config):
+    config.update(analysis_cutoff="2026-01-06T15:00:00+00:00", price_calendars={"AAPL": "XNYS"})
+    with run_config(config), analysis_run(config, "AAPL", "2026-01-06", []) as run:
+        text = router.route_to_vendor("get_stock_data", "AAPL", "2026-01-05", "2026-01-06")
+    assert "from 2026-01-05 to 2026-01-05" in text
+    store = EvidenceStore(config["results_dir"] + "/evidence")
+    restored = replay_prices(store, run["price_evidence"][0]["evidence_id"])
+    assert restored.availability_basis == "scheduled_session_close"
+    assert restored.available_not_before == datetime.fromisoformat("2026-01-05T21:00:00+00:00")
+    assert len(restored.bars) == 1
