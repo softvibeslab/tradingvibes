@@ -25,8 +25,10 @@ from cli.prompts import (
     detect_asset_type,
     ensure_api_key,
     get_ticker,
+    parse_analysis_cutoff,
     parse_analysis_date,
     parse_analysts,
+    parse_price_calendar,
     parse_ticker,
     prompt_openai_compatible_url,
     resolve_backend_url,
@@ -55,7 +57,13 @@ def depth_from_env() -> bool:
 def unattended_gaps(flags) -> list[str]:
     """The flags and environment variables a run with no terminal still needs."""
     env = os.environ.get
-    gaps = [f"--{name}" for name in ("ticker", "date", "analysts") if flags.get(name) is None]
+    # --cutoff derives --date when both calendar and cutoff are set.
+    date_ok = flags.get("date") is not None or (
+        flags.get("cutoff") is not None and flags.get("calendar") is not None
+    )
+    gaps = [f"--{name}" for name in ("ticker", "analysts") if flags.get(name) is None]
+    if not date_ok:
+        gaps.append("--date (or --cutoff with --calendar)")
     gaps += [f"--{name} or --no-{name}" for name in ("save", "show") if flags.get(name) is None]
     if not env("TRADINGAGENTS_OUTPUT_LANGUAGE"):
         gaps.append("TRADINGAGENTS_OUTPUT_LANGUAGE")
@@ -147,8 +155,34 @@ def _prompt_selections(prefs, flags):
             f"[green]Detected asset type:[/green] {asset_type.value}"
         )
 
-    # Step 2: Analysis date
-    if flags.get("date") is not None:
+    # Step 2: Analysis date (and optional aware cutoff + calendar)
+    analysis_cutoff = None
+    price_calendar = None
+    analysis_date = None
+    if flags.get("cutoff") is not None or flags.get("calendar") is not None:
+        if flags.get("cutoff") is None or flags.get("calendar") is None:
+            console.print("[red]--cutoff and --calendar must be set together[/red]")
+            raise typer.Exit(code=1)
+        analysis_cutoff = _from_flag(parse_analysis_cutoff, flags["cutoff"])
+        price_calendar = _from_flag(parse_price_calendar, flags["calendar"])
+        from tradingagents.dataflows.calendars import latest_closed_session
+        derived = latest_closed_session(price_calendar, analysis_cutoff).isoformat()
+        if flags.get("date") is not None:
+            analysis_date = _from_flag(parse_analysis_date, flags["date"])
+            if analysis_date != derived:
+                console.print(
+                    f"[red]--date {analysis_date} does not match the last closed "
+                    f"{price_calendar} session at --cutoff ({derived})[/red]"
+                )
+                raise typer.Exit(code=1)
+        else:
+            analysis_date = derived
+        console.print(
+            f"[green]✓ Cutoff:[/green] {analysis_cutoff.isoformat()} "
+            f"[green]calendar:[/green] {price_calendar} "
+            f"[green]session date:[/green] {analysis_date}"
+        )
+    elif flags.get("date") is not None:
         analysis_date = _from_flag(parse_analysis_date, flags["date"])
         console.print(f"[green]✓ Analysis date from --date:[/green] {analysis_date}")
     else:
@@ -325,6 +359,8 @@ def _prompt_selections(prefs, flags):
         "ticker": selected_ticker,
         "asset_type": asset_type.value,
         "analysis_date": analysis_date,
+        "analysis_cutoff": analysis_cutoff.isoformat() if analysis_cutoff else None,
+        "price_calendar": price_calendar,
         "analysts": selected_analysts,
         "research_depth": selected_research_depth,
         "llm_provider": selected_llm_provider.lower(),

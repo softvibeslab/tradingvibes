@@ -51,6 +51,17 @@ def analyze(
     ),
     ticker: str = typer.Option(None, "--ticker", help="Ticker to analyze, e.g. NVDA or 0700.HK; skips the prompt"),
     date: str = typer.Option(None, "--date", help="Analysis date, YYYY-MM-DD; skips the prompt"),
+    cutoff: str = typer.Option(
+        None,
+        "--cutoff",
+        help="Aware ISO instant for session-close price clamping, e.g. "
+        "2026-11-27T12:59:59-05:00; requires --calendar. Derives --date when omitted.",
+    ),
+    calendar: str = typer.Option(
+        None,
+        "--calendar",
+        help="Exchange calendar for the ticker (e.g. XNYS); required with --cutoff",
+    ),
     analysts: str = typer.Option(
         None, "--analysts", help="Comma-separated analysts, e.g. market,news; skips the prompt"
     ),
@@ -81,7 +92,10 @@ def analyze(
             raise typer.Exit(code=1) from None
 
     try:
-        flags = {"ticker": ticker, "date": date, "analysts": analysts, "save": save, "show": show}
+        flags = {
+            "ticker": ticker, "date": date, "cutoff": cutoff, "calendar": calendar,
+            "analysts": analysts, "save": save, "show": show,
+        }
         run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags)
     except _NO_CONSOLE_ERRORS:
         # A terminal with no console buffer cannot host the interactive prompts.

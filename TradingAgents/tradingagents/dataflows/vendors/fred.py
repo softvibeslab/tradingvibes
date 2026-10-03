@@ -272,4 +272,14 @@ def get_macro_data(
         + "\n"
     )
 
-    return header + summary + note + table
+    from tradingagents.dataflows.fundamentals import MacroSeriesResult, utc_now
+
+    return MacroSeriesResult(
+        series_id=series_id,
+        alias=indicator,
+        as_of_date=datetime.strptime(as_of_date, "%Y-%m-%d").date(),
+        vintage_date=datetime.strptime(pit, "%Y-%m-%d").date(),
+        provider="fred",
+        text=header + summary + note + table,
+        retrieved_at=utc_now(),
+    ).to_text()

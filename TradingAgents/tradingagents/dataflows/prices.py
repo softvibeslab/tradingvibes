@@ -3,15 +3,16 @@
 Dates are exchange-local sessions; ranges are inclusive. Adjusted history is
 retrieved now, not a claim of point-in-time corporate-action availability.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from io import StringIO
 from math import isfinite
 
 import pandas as pd
 
-from tradingagents.dataflows.calendars import validate_sessions
+from tradingagents.dataflows.calendars import session_close_at, validate_sessions
 from tradingagents.dataflows.config import get_config
+from tradingagents.dataflows.contracts import AvailabilityBasis
 from tradingagents.dataflows.errors import NoMarketDataError, VendorUnavailableError
 from tradingagents.dataflows.router import route_implementations
 from tradingagents.dataflows.symbols import normalize_symbol
@@ -44,6 +45,11 @@ class PriceHistory:
     schema_version: int = 1
     calendar_name: str | None = None
     cutoff_at: datetime | None = None
+    # Lower bound only when a calendar supplies a scheduled close. Never equal
+    # to retrieved_at. Vendor publication remains unknown.
+    availability_basis: AvailabilityBasis = "unknown"
+    available_not_before: datetime | None = None
+    feed: str | None = None
 
     def to_frame(self) -> pd.DataFrame:
         """A fresh mutable view; callers cannot change the stored evidence."""
@@ -54,13 +60,32 @@ class PriceHistory:
         ])
 
     def to_text(self) -> str:
+        availability = self.availability_basis
+        if self.available_not_before is not None:
+            availability = f"{availability}; not_before={self.available_not_before.isoformat()}"
         return (
             f"# Stock data for {self.provider_symbol} from {self.start} to {self.end}\n"
             f"# Provider: {self.provider}; prices: {self.adjustment}; "
             f"volume: {self.volume_basis}; currency: {self.currency or 'unknown'}; "
-            f"calendar: {self.calendar_name or 'unknown'}\n"
+            f"calendar: {self.calendar_name or 'unknown'}; "
+            f"availability: {availability}; "
+            f"retrieved_at: {self.retrieved_at.isoformat()} (not historical availability)\n"
             + self.to_frame().to_csv(index=False)
         )
+
+
+def _with_availability(history: PriceHistory) -> PriceHistory:
+    """Attach scheduled-close lower bound when a calendar is known."""
+    if history.calendar_name is None or not history.bars:
+        return replace(history, availability_basis="unknown", available_not_before=None)
+    close = session_close_at(history.calendar_name, history.bars[-1].session)
+    if close.tzinfo is None:
+        close = close.replace(tzinfo=UTC)
+    return replace(
+        history,
+        availability_basis="scheduled_session_close",
+        available_not_before=close.astimezone(UTC),
+    )
 
 
 def _normalize(frame, symbol, provider_symbol, provider, start, end):
@@ -147,21 +172,27 @@ def fetch_provider_history(provider, symbol, start_date, end_date, *, max_stale_
     if start > end:
         raise ValueError("start_date must not be after end_date")
     history = {"alpha_vantage": _alpha, "yfinance": _yahoo}[provider](symbol, start, end)
+    history = replace(history, feed=provider)
     config = get_config()
     calendar = config.get("price_calendars", {}).get(symbol.strip().upper())
     if calendar is not None:
-        return validate_sessions(
+        history = validate_sessions(
             history, calendar,
             max_missing_sessions=(config.get("price_max_missing_sessions", 1)
                                   if max_stale_days is not None else None),
         )
+        return _with_availability(history)
     if max_stale_days is not None and (end - history.bars[-1].session).days > max_stale_days:
         raise NoMarketDataError(symbol, history.provider_symbol, "latest price is stale")
-    return history
+    return _with_availability(history)
 
 
 def get_price_history(symbol: str, start_date: str, end_date: str, *, max_stale_days=None) -> PriceHistory:
-    """Use exactly the get_stock_data vendor chain, including tool overrides."""
+    """Use exactly the get_stock_data vendor chain, including tool overrides.
+
+    Does not apply ``analysis_cutoff``: settlement may request dates after the
+    decision. Analyst tools clamp through ``analyst_price_end`` / snapshot.
+    """
     from functools import partial
 
     start, end = date.fromisoformat(start_date), date.fromisoformat(end_date)
@@ -174,6 +205,30 @@ def get_price_history(symbol: str, start_date: str, end_date: str, *, max_stale_
     return route_implementations(
         "get_stock_data", implementations, (symbol, start_date, end_date), {}, strict=True,
     )
+
+
+def analyst_price_end(symbol: str, end: date) -> date:
+    """Clamp an analyst end date when ``analysis_cutoff`` is configured.
+
+    Settlement and outcome scoring must not call this — they need later sessions.
+    """
+    from tradingagents.dataflows.calendars import latest_closed_session
+
+    config = get_config()
+    cutoff = config.get("analysis_cutoff")
+    if cutoff is None:
+        return end
+    if isinstance(cutoff, str):
+        cutoff = datetime.fromisoformat(cutoff)
+    if cutoff.tzinfo is None or cutoff.utcoffset() is None:
+        raise ValueError("analysis_cutoff must include a timezone")
+    calendar = config.get("price_calendars", {}).get(symbol.strip().upper())
+    if calendar is None:
+        raise ValueError(
+            "analysis_cutoff requires an explicit price_calendars entry for "
+            f"{symbol.strip().upper()}"
+        )
+    return min(end, latest_closed_session(calendar, cutoff))
 
 
 def get_closes(symbol: str, start_date: str, end_date: str) -> pd.Series:
@@ -190,8 +245,6 @@ def get_closed_price_history(symbol: str, start_date: str, cutoff: datetime) -> 
     Requires an explicitly assigned calendar. It excludes an open session,
     but cannot establish when a provider actually published or revised a bar.
     """
-    from dataclasses import replace
-
     from tradingagents.dataflows.calendars import latest_closed_session
 
     calendar = get_config().get("price_calendars", {}).get(symbol.strip().upper())

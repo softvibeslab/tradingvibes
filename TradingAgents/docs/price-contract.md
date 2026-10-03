@@ -49,23 +49,23 @@ it may retrieve dates after a past decision to score its outcome. That path is
 not exposed as an analyst tool. Analyst tools retain their injected analysis-date
 cutoff.
 
-## Remaining F2 work
+## F2 third delivery (availability, CLI cutoff, fundamentals/macro)
 
-This delivery does not close all of F2:
-
-- Exchange calendars and an explicit instant API are implemented below. Unmapped
-  instruments retain the provisional ten-day rule; the CLI remains date-based.
-- The standalone technical-indicator tool still uses its existing independently
-  configured provider; only the snapshot's indicators use the new price contract.
-- Currency, market, feed identifiers, publication/availability times, URLs and
-  original-payload hashes need provider-specific enrichment. Retrieval time is
-  not historical availability. Adjusted histories can be revised after the
-  analysis date; this is not point-in-time evidence or a leakage-free backtest.
-- Fundamentals and macro data still need their own typed contracts.
-- Feed/benchmark provenance is returned by the price layer but not yet persisted
-  with each settled outcome. Immutable evidence storage and replay belong to F3.
-- Direct legacy Yahoo helper calls remain available for compatibility; application
-  stock tools, snapshot and settlement use the new layer.
+- Prices carry `availability_basis` and optional `available_not_before`. With an
+  assigned calendar the basis is `scheduled_session_close` (scheduled UTC close
+  of the latest bar). That is a lower bound only — not vendor publication.
+  Without a calendar the basis is `unknown` and `available_not_before` is null.
+  `retrieved_at` is labelled as operational and is never copied into availability.
+- CLI: `--cutoff` (aware ISO instant) with `--calendar` (e.g. `XNYS`) derives the
+  analysis session date, sets `analysis_cutoff` and `price_calendars[TICKER]`, and
+  records both in the run manifest. Analyst stock text and the verified snapshot
+  clamp through `analyst_price_end`; settlement/`get_closes` do not.
+- Fundamentals: `dataflows.fundamentals.FundamentalStatement` with
+  `availability_basis=filing_date` for SEC EDGAR (`build_statement` → `to_text`).
+  Macro: FRED responses are wrapped with `fred_realtime_vintage` provenance.
+- Still open for later phases: standalone indicator tool vendor unification;
+  payload hashes/URLs; persisting feed provenance on settled outcomes; F3 evidence
+  archive. Adjusted histories can still be revised after the analysis date.
 
 The first delivery added no dependencies; the second adds the calendar package.
 No LLM calls, GitHub Actions runs or live market requests are needed for validation:
@@ -133,3 +133,15 @@ Second-delivery validation (2026-10-03): 1,183 tests and 91 subtests passed; one
 live integration test deselected. Ruff passed and pip-audit found no known
 vulnerabilities in the locked application/dev/Bedrock dependency set. All checks
 ran locally; no GitHub Actions job was triggered.
+
+### CLI cutoff example
+
+```bash
+tradingagents --ticker AAPL \
+  --cutoff 2026-11-27T12:59:59-05:00 --calendar XNYS \
+  --analysts market,news --save --no-show
+```
+
+This sets the analysis date to the last XNYS session closed at that instant
+(2026-11-25 for the Thanksgiving early-close week) and clamps analyst prices
+accordingly.

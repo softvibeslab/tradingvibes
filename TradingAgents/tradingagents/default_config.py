@@ -159,6 +159,9 @@ def build_default_config() -> dict:
         # calendar-day freshness. Example: {"AAPL": "XNYS", "SPY": "XNYS"}.
         "price_calendars": {},
         "price_max_missing_sessions": 1,
+        # Optional aware ISO instant for analyst price clamping (CLI --cutoff).
+        # Settlement must ignore this. Requires price_calendars for the ticker.
+        "analysis_cutoff": None,
         # Tool-level configuration (takes precedence over category-level)
         "tool_vendors": {
             # Example: "get_stock_data": "alpha_vantage",  # Override category default

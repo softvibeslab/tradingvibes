@@ -37,6 +37,15 @@ def latest_closed_session(name: str, cutoff: datetime) -> date:
     return closed.index[-1].date()
 
 
+def session_close_at(name: str, session: date) -> datetime:
+    """Scheduled UTC close for a session label. Not vendor publication time."""
+    schedule = session_schedule(name, session, session)
+    if schedule.empty:
+        raise ValueError(f"{session} is not a {name} session")
+    close = schedule.iloc[0]["close"]
+    return pd.Timestamp(close).to_pydatetime()
+
+
 def validate_sessions(history, name: str, *, max_missing_sessions: int | None = None):
     """Validate daily rows and optionally enforce session-based freshness."""
     from dataclasses import replace

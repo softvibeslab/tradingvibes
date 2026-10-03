@@ -16,7 +16,10 @@ UNATTENDED_ENV = {
     "TRADINGAGENTS_LLM_PROVIDER": "openai",
     "TRADINGAGENTS_QUICK_THINK_LLM": "gpt-6-luna",
 }
-FLAGS = {"ticker": "NVDA", "date": "2026-09-23", "analysts": "market,news", "save": True, "show": False}
+FLAGS = {
+    "ticker": "NVDA", "date": "2026-09-23", "cutoff": None, "calendar": None,
+    "analysts": "market,news", "save": True, "show": False,
+}
 
 
 @pytest.mark.unit
