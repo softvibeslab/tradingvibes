@@ -82,7 +82,17 @@ def _analyst_graph(spec, agent, max_tool_rounds: int):
                        spec.agent_node, max_tool_rounds, repeated)
         return agent({**state, "messages": [*state["messages"], HumanMessage(WRAP_UP)]})
 
-    graph.add_node("tools", ToolNode(list(spec.tools)))
+    from tradingagents.evidence.run import graph_boundary
+
+    tool_node = ToolNode(list(spec.tools))
+
+    def recorded_tools(state, config):
+        return graph_boundary(
+            "tools:" + spec.key, state,
+            lambda: tool_node.invoke(state, config=config),
+        )
+
+    graph.add_node("tools", recorded_tools)
     graph.add_node("wrap_up", wrap_up)
     graph.add_conditional_edges("agent", _tools_or_done, ["tools", END])
     graph.add_conditional_edges("tools", more_or_wrap_up, ["agent", "wrap_up"])

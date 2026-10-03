@@ -119,3 +119,19 @@ def test_unsupported_request_cannot_trigger_provider_fallback(tmp_path):
     with pytest.raises(EvidenceCaptureError), analysis_run(config(tmp_path), "AAPL", "2026-01-05", []):
         invoke_structured(RecordedModel(delegate, "fixture"), object(), "test")
     delegate.invoke.assert_not_called()
+
+
+def test_prompt_message_ids_do_not_mask_content_changes(tmp_path):
+    from langchain_core.messages import HumanMessage
+    from langchain_core.prompt_values import ChatPromptValue
+
+    delegate = Mock()
+    delegate.invoke.return_value = AIMessage(content="ok")
+    with analysis_run(config(tmp_path), "AAPL", "2026-01-05", []) as run:
+        RecordedModel(delegate, "fixture").invoke(
+            ChatPromptValue(messages=[HumanMessage("question", id="original")]))
+    with replay_llm(EvidenceStore(tmp_path / "evidence"), [run["llm_evidence"][0]["evidence_id"]]):
+        model = RecordedModel(None, "fixture")
+        assert model.invoke(ChatPromptValue(messages=[HumanMessage("question", id="new")])).content == "ok"
+        with pytest.raises(LLMReplayError):
+            model.invoke(ChatPromptValue(messages=[HumanMessage("different", id="new")]))

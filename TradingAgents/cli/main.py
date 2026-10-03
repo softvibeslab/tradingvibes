@@ -166,5 +166,23 @@ def backtest(
         console.print(f"[yellow]unsettled:[/yellow] {ticker}: {reason}")
 
 
+@app.command("replay")
+def replay(
+    run_id: str = typer.Option(..., "--run-id", help="Completed run recorded with graph evidence"),
+    results_dir: str = typer.Option(None, "--results-dir", help="Original results directory"),
+):
+    """Reproduce an archived graph offline and compare its final state."""
+    from tradingagents.evidence.run import replay_run
+
+    try:
+        result = replay_run(results_dir or DEFAULT_CONFIG["results_dir"], run_id)
+    except (ValueError, RuntimeError, OSError, KeyError) as exc:
+        console.print(f"Replay failed: {type(exc).__name__}")
+        raise typer.Exit(code=1) from None
+    console.print("Replay matches original state" if result["matches"] else "Replay differs from original state")
+    if not result["matches"]:
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

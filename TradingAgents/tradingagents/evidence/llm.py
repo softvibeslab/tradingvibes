@@ -23,15 +23,31 @@ class LLMReplayError(RuntimeError):
 def _pack(value):
     if isinstance(value, BaseMessage):
         return {"kind": "message", "data": message_to_dict(value)}
-    if isinstance(value, BaseModel):
-        return {"kind": "model", "data": value.model_dump(mode="json")}
     if hasattr(value, "to_messages"):
         return _pack(value.to_messages())
-    if isinstance(value, list):
+    if isinstance(value, BaseModel):
+        return {"kind": "model", "data": value.model_dump(mode="json")}
+    if isinstance(value, (list, tuple)):
         return {"kind": "list", "data": [_pack(v) for v in value]}
     if isinstance(value, dict):
         return {"kind": "dict", "data": {k: _pack(v) for k, v in value.items()}}
     return {"kind": "json", "data": value}
+
+
+def _request_pack(value):
+    packed = _pack(value)
+
+    def clean(item):
+        if isinstance(item, dict):
+            if item.get("kind") == "message":
+                item["data"]["data"]["id"] = None
+            for child in item.values():
+                clean(child)
+        elif isinstance(item, list):
+            for child in item:
+                clean(child)
+    clean(packed)
+    return packed
 
 
 def _unpack(value, schema=None):
@@ -117,7 +133,7 @@ class RecordedModel(Runnable):
         configurable = {k: v for k, v in (config or {}).get("configurable", {}).items()
                         if not k.startswith("__pregel_")
                         and k not in {"thread_id", "checkpoint_id", "checkpoint_ns", "checkpoint_map"}}
-        request = {"identity": self.identity, "binding": self.binding, "input": _pack(input),
+        request = {"identity": self.identity, "binding": self.binding, "input": _request_pack(input),
                    "kwargs": _pack(kwargs), "configurable": _pack(configurable)}
         try:
             key = hashlib.sha256(_encode(request)).hexdigest()

@@ -335,6 +335,9 @@ class TradingAgentsGraph:
             manifest["initial_memory_context_sha256"] = hashlib.sha256(
                 (state.get("past_context") or "").encode()
             ).hexdigest()
+        from tradingagents.evidence.run import save_graph_state
+
+        save_graph_state("initial", state)
         return state
 
     def settle_pending(self, company_name):
@@ -358,6 +361,9 @@ class TradingAgentsGraph:
                 manifest["memory_context_sha256"] = hashlib.sha256(
                     (final_state["past_context"] or "").encode()
                 ).hexdigest()
+        from tradingagents.evidence.run import save_graph_state
+
+        save_graph_state("final", final_state)
         self._log_state(trade_date, final_state)
         decision = final_state.get("final_trade_decision")
         if not decision:

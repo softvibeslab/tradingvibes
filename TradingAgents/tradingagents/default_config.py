@@ -8,6 +8,8 @@ _TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
 # of the existing default, so users can keep writing plain strings in
 # their .env file.
 _ENV_OVERRIDES = {
+    "TRADINGAGENTS_EVIDENCE_LLM_RESPONSES": "evidence_llm_responses",
+    "TRADINGAGENTS_EVIDENCE_GRAPH_REPLAY": "evidence_graph_replay",
     "TRADINGAGENTS_LLM_PROVIDER":         "llm_provider",
     "TRADINGAGENTS_DEEP_THINK_LLM":       "deep_think_llm",
     "TRADINGAGENTS_QUICK_THINK_LLM":      "quick_think_llm",
@@ -162,6 +164,7 @@ def build_default_config() -> dict:
         "evidence_price_providers": [],
         "evidence_tool_providers": {},
         "evidence_llm_responses": False,
+        "evidence_graph_replay": False,
         "price_max_missing_sessions": 1,
         # Optional aware ISO instant for analyst price clamping (CLI --cutoff).
         # Settlement must ignore this. Requires price_calendars for the ticker.

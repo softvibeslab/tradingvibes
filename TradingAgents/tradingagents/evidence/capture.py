@@ -32,8 +32,9 @@ def capture_run(config, manifest, checkpoint):
     purpose_token = _PURPOSE.set("analysis")
     try:
         from tradingagents.evidence.llm import llm_run
+        from tradingagents.evidence.run import graph_capture
 
-        with llm_run(config, manifest, checkpoint, lock):
+        with llm_run(config, manifest, checkpoint, lock), graph_capture(config, manifest, checkpoint, lock):
             checkpoint()
             yield
     finally:

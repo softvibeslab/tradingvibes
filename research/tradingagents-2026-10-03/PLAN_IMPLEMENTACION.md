@@ -256,3 +256,14 @@ Cada PR incluye pruebas de comportamiento relevantes, documentación y reversió
 Una funcionalidad está terminada cuando tiene contrato, implementación, pruebas apropiadas, configuración/documentación, trazabilidad y migración/rollback si afecta persistencia. Integraciones externas declaran `mock-tested`, `contract-tested` o `validated-live/paper`; no presentar mocks como conexión real. La release conserva garantías temporales, contratos de errores, aislamiento por corrida y comandos existentes.
 
 Este documento planifica cambios; no constituye ejecución del plan ni demuestra rentabilidad. Las capacidades y fuentes externas se encuentran en el [informe](2026-10-03_informe.md) y su [índice de fuentes](sources.csv).
+
+### Avance F3: replay del grafo por corrida
+
+Implementado opt-in `evidence_graph_replay` junto con evidencia LLM: estado
+inicial/final, respuestas de herramientas del grafo y fuentes de sentimiento.
+`tradingagents replay --run-id` reconstruye el grafo sin clientes de proveedores,
+compara el estado final y conserva intacta la memoria. Validación con fixtures,
+sin llamadas pagadas. Requiere corrida nueva, completa, sin checkpoints y mismo
+código/lock. Quedan pendientes reproducción de excepciones/fallbacks de modelos
+y checkpoints; settlement previo no forma parte del replay. Próximo bloque:
+dataset de regresión y métricas F4. Detalles en `TradingAgents/docs/run-replay.md`.
