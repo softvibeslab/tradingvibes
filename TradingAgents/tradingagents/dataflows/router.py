@@ -16,14 +16,14 @@ from tradingagents.dataflows.vendors.alpha_vantage import (
     get_insider_transactions as get_alpha_vantage_insider_transactions,
     get_news as get_alpha_vantage_news,
 )
-from tradingagents.dataflows.vendors.fred import get_macro_data as get_fred_macro_data
+from tradingagents.dataflows.vendors.fred import build_macro_data as get_fred_macro_data
 from tradingagents.dataflows.vendors.polymarket import (
     get_prediction_markets as get_polymarket_prediction_markets,
 )
 from tradingagents.dataflows.vendors.sec_edgar import (
-    get_balance_sheet as get_sec_edgar_balance_sheet,
-    get_cashflow as get_sec_edgar_cashflow,
-    get_income_statement as get_sec_edgar_income_statement,
+    get_balance_sheet_result as get_sec_edgar_balance_sheet,
+    get_cashflow_result as get_sec_edgar_cashflow,
+    get_income_statement_result as get_sec_edgar_income_statement,
 )
 from tradingagents.dataflows.vendors.yahoo.fundamentals import (
     get_balance_sheet as get_yfinance_balance_sheet,

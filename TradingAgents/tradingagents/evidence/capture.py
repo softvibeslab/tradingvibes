@@ -74,6 +74,11 @@ def capture_prices(history):
 
 
 def capture_tool_response(method, provider, args, kwargs, result):
+    from tradingagents.dataflows.fundamentals import FundamentalStatement, MacroSeriesResult
+    from tradingagents.evidence.fundamentals import encode_fundamental
+
+    typed = result if isinstance(result, (FundamentalStatement, MacroSeriesResult)) else None
+    result = typed.to_text() if typed is not None else result
     session = _SESSION.get()
     if session is None:
         return result
@@ -95,7 +100,8 @@ def capture_tool_response(method, provider, args, kwargs, result):
                 payload={"schema_version": 1, "method": method, "provider": provider,
                          "args": list(args), "kwargs": kwargs, "text": result,
                          "retrieved_at": datetime.now(UTC).isoformat(),
-                         "availability_basis": "unknown"},
+                         "availability_basis": typed.availability_basis if typed is not None else "unknown",
+                         "structured": encode_fundamental(typed) if typed is not None else None},
             )
             manifest["tool_evidence"].append({
                 "sequence": len(manifest["tool_evidence"]) + 1,
