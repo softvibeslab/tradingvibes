@@ -309,14 +309,7 @@ def test_full_graph_records_llm_invocations(tmp_path, monkeypatch, offline, stru
         assert store.get(ref["evidence_id"])["tool"] == "llm_invocation"
 
 
-@pytest.mark.parametrize("structured", [False, True])
-def test_complete_run_replays_without_providers(tmp_path, monkeypatch, offline, structured):
-    from tradingagents.evidence.run import replay_run
-
-    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured),
-                   evidence_llm_responses=True, evidence_graph_replay=True)
-    state, _ = graph.propagate("NVDA", TRADE_DATE)
-
+def _forbid_replay_providers(monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("replay attempted a live call")
 
@@ -331,6 +324,17 @@ def test_complete_run_replays_without_providers(tmp_path, monkeypatch, offline, 
     for vendors in router.VENDOR_METHODS.values():
         for vendor in vendors:
             monkeypatch.setitem(vendors, vendor, forbidden)
+
+
+@pytest.mark.parametrize("structured", [False, True])
+def test_complete_run_replays_without_providers(tmp_path, monkeypatch, offline, structured):
+    from tradingagents.evidence.run import replay_run
+
+    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured),
+                   evidence_llm_responses=True, evidence_graph_replay=True)
+    state, _ = graph.propagate("NVDA", TRADE_DATE)
+
+    _forbid_replay_providers(monkeypatch)
     result = replay_run(tmp_path / "results", state["run_id"])
     assert result["matches"]
     assert result["state"]["final_trade_decision"] == state["final_trade_decision"]
@@ -389,16 +393,23 @@ def test_full_replay_preserves_structured_failure_fallback(tmp_path, monkeypatch
 
     from tradingagents.evidence.run import replay_run
 
+    failures = []
+
     class FailingStructuredModel(ScriptedModel):
         def with_structured_output(self, schema, **kwargs):
             def fail(prompt):
+                failures.append(schema.__name__)
                 raise ValueError("invalid provider output")
             return RunnableLambda(fail)
 
     graph = _graph(tmp_path, monkeypatch, FailingStructuredModel(),
                    evidence_llm_responses=True, evidence_graph_replay=True)
     state, _ = graph.propagate("NVDA", TRADE_DATE)
+    assert set(failures) == {"SentimentReport", "ResearchPlan", "TraderProposal", "PortfolioDecision"}
+    recorded_failures = failures[:]
+    _forbid_replay_providers(monkeypatch)
     assert replay_run(tmp_path / "results", state["run_id"])["matches"]
+    assert failures == recorded_failures
 
 
 def test_replay_cli_explains_rejection(tmp_path):
