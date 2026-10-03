@@ -20,7 +20,10 @@ Baseline Ruff passed.
 - Clean non-editable core installation imports `tradingagents` and `cli.main`.
 - pip-audit on locked application/dev/Bedrock dependencies: no known vulnerabilities.
 
-These are local checks. Linux GitHub Actions status must be checked separately.
+These are local checks. GitHub Actions could not start its jobs: the organization
+account is locked due to a billing issue (run 37108749623, smoke job annotation).
+This is an external execution blocker, not a reported test failure. Rerun CI after
+the account restriction is resolved; Linux validation remains pending.
 The lock resolves platform-specific packages; a local macOS pass does not establish
 Windows behavior or vendor API compatibility. The audit reflects its database at
 execution time, not a security guarantee.
