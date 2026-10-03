@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from tradingagents.dataflows.prices import get_closes
 from tradingagents.dataflows.symbols import normalize_symbol
 from tradingagents.evidence.capture import EvidenceCaptureError
+from tradingagents.evidence.llm import LLMReplayError
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,8 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict) -> None:
                 benchmark_name=benchmark,
                 holding_days=days,
             )
+        except (EvidenceCaptureError, LLMReplayError):
+            raise
         except Exception as exc:
             # Reflection calls a provider, and this runs on the way into a
             # new run: a transient failure leaves the entry pending for the

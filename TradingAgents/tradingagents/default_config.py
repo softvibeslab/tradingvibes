@@ -161,6 +161,7 @@ def build_default_config() -> dict:
         # Opt-in only for providers whose normalized prices you may retain.
         "evidence_price_providers": [],
         "evidence_tool_providers": {},
+        "evidence_llm_responses": False,
         "price_max_missing_sessions": 1,
         # Optional aware ISO instant for analyst price clamping (CLI --cutoff).
         # Settlement must ignore this. Requires price_calendars for the ticker.

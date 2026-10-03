@@ -287,3 +287,23 @@ def test_the_last_turn_is_offered_no_tools_and_reads_its_tool_results_as_text(tm
 def test_a_tool_limit_the_recursion_limit_cannot_hold_is_refused(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="max_tool_rounds"):
         _graph(tmp_path, monkeypatch, ScriptedModel(), max_tool_rounds=60, max_recur_limit=100)
+
+
+@pytest.mark.parametrize("structured", [False, True])
+def test_full_graph_records_llm_invocations(tmp_path, monkeypatch, offline, structured):
+    import json
+
+    from tradingagents.evidence import EvidenceStore
+
+    model = ScriptedModel(structured=structured)
+    graph = _graph(tmp_path, monkeypatch, model, evidence_llm_responses=True)
+    state, signal = graph.propagate("NVDA", TRADE_DATE)
+    assert signal == "Overweight"
+    path = tmp_path / "results" / "runs" / state["run_id"] / "manifest.json"
+    manifest = json.loads(path.read_text())
+    assert manifest["status"] == "completed"
+    assert len(manifest["llm_evidence"]) > 5
+    assert len(manifest["llm_evidence"]) == len(model.calls)
+    store = EvidenceStore(tmp_path / "results" / "evidence")
+    for ref in manifest["llm_evidence"]:
+        assert store.get(ref["evidence_id"])["tool"] == "llm_invocation"

@@ -26,12 +26,16 @@ def capture_run(config, manifest, checkpoint):
     manifest["tool_evidence_policy"] = tool_policy
     manifest["price_evidence"] = []
     manifest["price_evidence_policy"] = {"providers": sorted(set(providers))}
-    session = (config, manifest, checkpoint, RLock(), frozenset(providers), tool_policy) if providers or tool_policy else None
+    lock = RLock()
+    session = (config, manifest, checkpoint, lock, frozenset(providers), tool_policy) if providers or tool_policy else None
     token = _SESSION.set(session)
     purpose_token = _PURPOSE.set("analysis")
     try:
-        checkpoint()
-        yield
+        from tradingagents.evidence.llm import llm_run
+
+        with llm_run(config, manifest, checkpoint, lock):
+            checkpoint()
+            yield
     finally:
         _PURPOSE.reset(purpose_token)
         _SESSION.reset(token)

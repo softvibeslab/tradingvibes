@@ -97,6 +97,17 @@ class TradingAgentsGraph:
         self.deep_thinking_llm = deep_client.get_llm()
         self.quick_thinking_llm = quick_client.get_llm()
 
+        if self.config.get("evidence_llm_responses", False):
+            from tradingagents.evidence.llm import RecordedModel
+            from tradingagents.runs.manifest import safe_settings
+
+            identity = safe_settings(self.config)
+            identity["endpoint_sha256"] = hashlib.sha256(
+                str(self.config.get("backend_url") or "provider-default").encode()
+            ).hexdigest()
+            self.deep_thinking_llm = RecordedModel(self.deep_thinking_llm, {"role": "deep", "settings": identity})
+            self.quick_thinking_llm = RecordedModel(self.quick_thinking_llm, {"role": "quick", "settings": identity})
+
         self.memory_log = TradingMemoryLog(self.config)
 
         self.conditional_logic = ConditionalLogic(
