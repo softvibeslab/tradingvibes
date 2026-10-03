@@ -56,7 +56,7 @@ def graph_boundary(name, inputs, call):
     replay = _REPLAY.get()
     if replay is not None:
         if key not in replay:
-            raise RunReplayError("external boundary absent from run evidence: " + name)
+            raise RunReplayError(f"external boundary absent from run evidence: {name} (request {key})")
         return _unpack(replay[key])
     result = call()
     _save({"schema_version": 1, "kind": "boundary", "key": key, "response": _pack(result)})

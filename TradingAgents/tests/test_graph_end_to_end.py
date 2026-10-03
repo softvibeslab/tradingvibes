@@ -322,6 +322,8 @@ def test_complete_run_replays_without_providers(tmp_path, monkeypatch, offline, 
 
     monkeypatch.setattr(trading_graph, "create_llm_client", forbidden)
     monkeypatch.setattr(ScriptedModel, "_generate", forbidden)
+    monkeypatch.setattr("tradingagents.dataflows.prices.fetch_price_frame", forbidden)
+    monkeypatch.setattr(yahoo_market.yf, "Ticker", forbidden)
     monkeypatch.setattr(sentiment_analyst, "fetch_stocktwits_messages", forbidden)
     monkeypatch.setattr(sentiment_analyst, "fetch_reddit_posts", forbidden)
     monkeypatch.setattr(trading_graph.TradingAgentsGraph, "settle_pending", forbidden)
@@ -380,3 +382,30 @@ def test_graph_capture_rejects_unreplayable_configuration(tmp_path, monkeypatch,
     graph = _graph(tmp_path, monkeypatch, ScriptedModel(), evidence_graph_replay=True, **options)
     with pytest.raises(ValueError, match="graph capture requires"):
         graph.propagate("NVDA", TRADE_DATE)
+
+
+def test_full_replay_preserves_structured_failure_fallback(tmp_path, monkeypatch, offline):
+    from langchain_core.runnables import RunnableLambda
+
+    from tradingagents.evidence.run import replay_run
+
+    class FailingStructuredModel(ScriptedModel):
+        def with_structured_output(self, schema, **kwargs):
+            def fail(prompt):
+                raise ValueError("invalid provider output")
+            return RunnableLambda(fail)
+
+    graph = _graph(tmp_path, monkeypatch, FailingStructuredModel(),
+                   evidence_llm_responses=True, evidence_graph_replay=True)
+    state, _ = graph.propagate("NVDA", TRADE_DATE)
+    assert replay_run(tmp_path / "results", state["run_id"])["matches"]
+
+
+def test_replay_cli_explains_rejection(tmp_path):
+    from typer.testing import CliRunner
+
+    from cli.main import app
+
+    result = CliRunner().invoke(app, ["replay", "--run-id", "invalid", "--results-dir", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "invalid run_id" in result.output

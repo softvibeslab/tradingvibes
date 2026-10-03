@@ -16,6 +16,10 @@ _RUN = ContextVar("llm_evidence_run", default=None)
 _REPLAY = ContextVar("llm_evidence_replay", default=None)
 
 
+class RecordedInvocationError(RuntimeError):
+    """An archived provider failure, replayed without importing its exception type."""
+
+
 class LLMReplayError(RuntimeError):
     """No exact recorded invocation is available; live fallback is forbidden."""
 
@@ -38,13 +42,14 @@ def _request_pack(value):
     packed = _pack(value)
 
     def clean(item):
-        if isinstance(item, dict):
-            if item.get("kind") == "message":
-                item["data"]["data"]["id"] = None
-            for child in item.values():
+        kind = item["kind"]
+        if kind == "message":
+            item["data"]["data"]["id"] = None
+        elif kind == "dict":
+            for child in item["data"].values():
                 clean(child)
-        elif isinstance(item, list):
-            for child in item:
+        elif kind == "list":
+            for child in item["data"]:
                 clean(child)
     clean(packed)
     return packed
@@ -52,6 +57,8 @@ def _request_pack(value):
 
 def _unpack(value, schema=None):
     kind, data = value["kind"], value["data"]
+    if kind == "error":
+        raise RecordedInvocationError("recorded provider failure: " + data)
     if kind == "message":
         return messages_from_dict([data])[0]
     if kind == "model":
@@ -146,16 +153,25 @@ class RecordedModel(Runnable):
             return _unpack(replay[key], self.schema)
         if self.delegate is None:
             raise LLMReplayError("no live delegate")
-        response = self.delegate.invoke(input, config=config, **kwargs)
+        failure = None
+        try:
+            response = self.delegate.invoke(input, config=config, **kwargs)
+        except Exception as exc:
+            failure = exc
+            response = None
         store, manifest, checkpoint, lock = session
         try:
             with lock:
                 evidence_id = store.put(run_id=manifest["run_id"], tool="llm_invocation", payload={
-                    "schema_version": 1, "request": request, "response": _pack(response),
+                    "schema_version": 1, "request": request,
+                    "response": {"kind": "error", "data": type(failure).__name__}
+                    if failure is not None else _pack(response),
                 })
                 manifest["llm_evidence"].append({"sequence": len(manifest["llm_evidence"]) + 1,
                                                  "evidence_id": evidence_id, "request_sha256": key})
                 checkpoint()
         except Exception as exc:
             raise EvidenceCaptureError("could not persist requested LLM evidence") from exc
+        if failure is not None:
+            raise failure
         return response

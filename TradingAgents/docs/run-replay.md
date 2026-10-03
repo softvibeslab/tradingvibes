@@ -36,8 +36,8 @@ initial/final graph evidence cannot be upgraded retroactively.
 
 Scope: successful fresh graph executions, validated with offline fixtures in
 both free-text and structured-output modes. Resumed checkpoints are rejected.
-Provider exceptions that trigger structured-output fallback are not recorded as
-invocations, so some otherwise successful runs can fail replay. Settlement before
+Provider invocation failures retain only their exception class name and replay
+as a generic failure, allowing the same structured-to-free-text fallback. Settlement before
 initial-state creation is not re-executed. This verifies the graph against stored
 inputs; it does not independently re-fetch or validate historical market facts.
 Replay is not an OS network sandbox for arbitrary custom nodes. Normalization of

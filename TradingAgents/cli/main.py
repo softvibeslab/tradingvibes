@@ -172,12 +172,14 @@ def replay(
     results_dir: str = typer.Option(None, "--results-dir", help="Original results directory"),
 ):
     """Reproduce an archived graph offline and compare its final state."""
-    from tradingagents.evidence.run import replay_run
+    from tradingagents.evidence.llm import LLMReplayError
+    from tradingagents.evidence.run import RunReplayError, replay_run
 
     try:
         result = replay_run(results_dir or DEFAULT_CONFIG["results_dir"], run_id)
-    except (ValueError, RuntimeError, OSError, KeyError) as exc:
-        console.print(f"Replay failed: {type(exc).__name__}")
+    except Exception as exc:
+        detail = str(exc) if isinstance(exc, (RunReplayError, LLMReplayError)) else type(exc).__name__
+        console.print(f"Replay failed: {detail}", style="red", markup=False)
         raise typer.Exit(code=1) from None
     console.print("Replay matches original state" if result["matches"] else "Replay differs from original state")
     if not result["matches"]:
