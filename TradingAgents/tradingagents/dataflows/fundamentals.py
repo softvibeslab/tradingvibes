@@ -65,6 +65,12 @@ class FundamentalStatement:
 
 
 @dataclass(frozen=True)
+class MacroObservation:
+    observation_date: date
+    value: str  # provider decimal text; do not round through binary float
+
+
+@dataclass(frozen=True)
 class MacroSeriesResult:
     """FRED (or similar) series pinneadas por vintage realtime."""
 
@@ -77,6 +83,10 @@ class MacroSeriesResult:
     retrieved_at: datetime
     availability_basis: AvailabilityBasis = "fred_realtime_vintage"
     schema_version: int = 1
+    observations: tuple[MacroObservation, ...] = ()
+    units: str = ""
+    frequency: str = ""
+    title: str = ""
 
     def to_text(self) -> str:
         return (

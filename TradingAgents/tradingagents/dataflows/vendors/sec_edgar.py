@@ -278,3 +278,15 @@ def get_income_statement(ticker: str, freq: str = "quarterly", as_of_date: str |
 def get_cashflow(ticker: str, freq: str = "quarterly", as_of_date: str | None = None) -> str:
     """Cash flow statement as filed on or before ``as_of_date``."""
     return _statement("cashflow", ticker, freq, as_of_date, "Cash Flow Statement")
+
+
+def get_balance_sheet_result(ticker: str, freq: str = "quarterly", as_of_date: str | None = None):
+    return build_statement("balance_sheet", ticker, freq, as_of_date, "Balance Sheet")
+
+
+def get_income_statement_result(ticker: str, freq: str = "quarterly", as_of_date: str | None = None):
+    return build_statement("income_statement", ticker, freq, as_of_date, "Income Statement")
+
+
+def get_cashflow_result(ticker: str, freq: str = "quarterly", as_of_date: str | None = None):
+    return build_statement("cashflow", ticker, freq, as_of_date, "Cash Flow Statement")

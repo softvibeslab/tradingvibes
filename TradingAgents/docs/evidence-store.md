@@ -43,7 +43,7 @@ Hashes detect accidental modification, not malicious replacement of both objects
 and references. The store is not an append-only security boundary. Run IDs and
 object IDs are validated to avoid path traversal through API parameters.
 
-Remaining F3 work: typed family integration and additional families, tool invocation start ordering,
+Remaining F3 work: additional typed providers, tool invocation start ordering,
 raw response permissions, replay routing,
 fundamental/macro payload schemas, schema migration, indexing/Parquet/DuckDB,
 retention management, and full graph reproducibility. The archive does not make
@@ -105,8 +105,8 @@ provides them. Provider retention permissions still apply. This captures text
 returned successfully by the provider implementation, including any textual
 unavailability response; raised vendor failures are not captured. It records the
 actual successful provider, exact positional/keyword arguments, and retrieval
-time, then checkpoints `tool_evidence` references in the run manifest. This is a
-text compatibility layer, not the new typed fundamental/macro contracts.
+time, then checkpoints `tool_evidence` references in the run manifest. The text compatibility layer also carries typed SEC/FRED payloads, as described
+below. Other providers remain text-only.
 
 Availability metadata remains `unknown` at this generic boundary. A filing date
 or vintage mentioned in the response is preserved as text, not upgraded to a
@@ -134,3 +134,40 @@ the context fail instead of invoking a live provider; direct typed price routing
 is also blocked in that context. Use `replay_prices` separately for stored price
 histories. Custom code calling provider clients directly is not sandboxed by this
 context. Whole-graph offline execution and LLM response replay remain pending.
+
+## Typed SEC/FRED evidence
+
+SEC statement adapters and successful FRED series queries now retain their typed
+objects until the router renders them. With the existing `evidence_tool_providers`
+allowlist enabled, each response object contains both exact rendered text and a
+`structured` payload. No extra request is made and capture remains disabled by
+default. Public legacy vendor functions still return text.
+
+```python
+from tradingagents.evidence.fundamentals import replay_fundamental
+
+result = replay_fundamental(store, evidence_id)
+# FundamentalStatement for SEC, or MacroSeriesResult for FRED
+assert result.to_text() == store.get(evidence_id)["payload"]["text"]
+```
+
+SEC preserves the normalized statement's columns, period spans, rows, units,
+filing-date availability basis and retrieval time. Values retain the existing
+statement contract's display precision (USD in rounded millions); this is not an
+archive of original XBRL facts, accession IDs or unrounded raw numbers.
+
+FRED preserves series ID, alias, units, frequency, title, query vintage and every
+nonmissing observation returned for the window, even when the rendered table is
+truncated. Observation values remain provider decimal strings, including trailing
+zeros; they do not pass through binary floats in the structured archive. Summary
+calculations in the rendered report retain their existing formatting.
+
+Invalid-series guidance, no-observation responses and legacy text-only records
+remain text-only. They can be reproduced using `replay_tools`; attempting typed
+reconstruction raises an explicit error instead of inventing structure. Typed
+records continue to support exact text replay. Neither filing-date selection nor
+a FRED daily vintage establishes an exact intraday publication timestamp.
+
+Validation: 1,232 tests and 91 subtests passed locally; Ruff passed. Provider calls
+were mocked, including a later SEC revision and a truncated FRED table with
+high-precision decimal strings. No paid or live data requests were needed.

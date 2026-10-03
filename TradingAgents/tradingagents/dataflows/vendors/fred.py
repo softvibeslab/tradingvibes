@@ -153,12 +153,12 @@ def _request(path: str, params: dict) -> dict:
     return response.json()
 
 
-def get_macro_data(
+def build_macro_data(
     indicator: str,
     as_of_date: str,
     look_back_days: int | None = None,
-) -> str:
-    """Fetch a FRED macroeconomic series as a formatted markdown report.
+):
+    """Fetch a typed FRED macroeconomic series as a formatted markdown report.
 
     Args:
         indicator: A friendly alias (e.g. "cpi", "unemployment", "10y_treasury")
@@ -272,7 +272,7 @@ def get_macro_data(
         + "\n"
     )
 
-    from tradingagents.dataflows.fundamentals import MacroSeriesResult, utc_now
+    from tradingagents.dataflows.fundamentals import MacroObservation, MacroSeriesResult, utc_now
 
     return MacroSeriesResult(
         series_id=series_id,
@@ -281,5 +281,13 @@ def get_macro_data(
         vintage_date=datetime.strptime(pit, "%Y-%m-%d").date(),
         provider="fred",
         text=header + summary + note + table,
-        retrieved_at=utc_now(),
-    ).to_text()
+        retrieved_at=utc_now(), units=units, frequency=frequency, title=title,
+        observations=tuple(MacroObservation(datetime.strptime(d, "%Y-%m-%d").date(), v)
+                           for d, v in points),
+    )
+
+
+def get_macro_data(indicator: str, as_of_date: str, look_back_days: int | None = None) -> str:
+    """Compatibility text API; the router archives the builder's typed result."""
+    result = build_macro_data(indicator, as_of_date, look_back_days)
+    return result if isinstance(result, str) else result.to_text()
