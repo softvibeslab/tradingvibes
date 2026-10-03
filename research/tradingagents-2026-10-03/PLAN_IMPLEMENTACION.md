@@ -2,7 +2,7 @@
 
 Estado: F0 implementada; F1 parcialmente implementada y CI remota aprobada (prompts efectivos y modelos resueltos pendientes). F2 en curso: contrato de precios, puente de texto y rutas de snapshot/settlement compartidas implementadas. Calendarios explícitos por símbolo y consulta por instante con zona implementados. CLI con cutoff y contratos SEC/FRED integrados. Disponibilidad histórica exacta y cobertura de proveedores/indicadores pendientes.
 
-F2 publicada en PR #2 con siete jobs aprobados. F3 iniciada con archivo JSON explícito y replay de precios; captura opcional de precios y textos fundamentales/macro vinculada a manifiestos implementada; replay de herramientas disponible; contratos SEC/FRED integrados; captura tipada SEC/FRED implementada; captura y replay de invocaciones LLM disponibles; replay de grafo completo pendiente.
+F2 publicada en PR #2 con siete jobs aprobados. F3 iniciada con archivo JSON explícito y replay de precios; captura opcional de precios y textos fundamentales/macro vinculada a manifiestos implementada; replay de herramientas disponible; contratos SEC/FRED integrados; captura tipada SEC/FRED implementada; captura y replay de invocaciones LLM disponibles; replay de grafo completo implementado para corridas nuevas sin checkpoints.
 
 Detalle de esta entrega: [contrato de precios](../../TradingAgents/docs/price-contract.md).
 Base: [investigación del repositorio](2026-10-03_informe.md), checkout `8b22d43d01d9ddda5d686d093d5385884622f3de`.
@@ -256,3 +256,14 @@ Cada PR incluye pruebas de comportamiento relevantes, documentación y reversió
 Una funcionalidad está terminada cuando tiene contrato, implementación, pruebas apropiadas, configuración/documentación, trazabilidad y migración/rollback si afecta persistencia. Integraciones externas declaran `mock-tested`, `contract-tested` o `validated-live/paper`; no presentar mocks como conexión real. La release conserva garantías temporales, contratos de errores, aislamiento por corrida y comandos existentes.
 
 Este documento planifica cambios; no constituye ejecución del plan ni demuestra rentabilidad. Las capacidades y fuentes externas se encuentran en el [informe](2026-10-03_informe.md) y su [índice de fuentes](sources.csv).
+
+### Avance F3: replay del grafo por corrida
+
+Implementado opt-in `evidence_graph_replay` junto con evidencia LLM: estado
+inicial/final, respuestas de herramientas del grafo y fuentes de sentimiento.
+`tradingagents replay --run-id` reconstruye el grafo sin clientes de proveedores,
+compara el estado final y conserva intacta la memoria. Validación con fixtures,
+sin llamadas pagadas. Requiere corrida nueva, completa, sin checkpoints y mismo
+código/lock. Se reproducen fallos de invocación y su fallback a texto libre; siguen pendientes
+checkpoints y settlement previo. Próximo bloque:
+dataset de regresión y métricas F4. Detalles en `TradingAgents/docs/run-replay.md`.

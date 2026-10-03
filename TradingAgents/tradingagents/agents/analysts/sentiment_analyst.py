@@ -58,14 +58,23 @@ def create_sentiment_analyst(llm):
         # Pre-fetch all three sources. Each fetcher degrades gracefully and
         # returns a string (no exceptions surface from here), so the LLM
         # always sees something — either real data or a clear placeholder.
-        news_block = get_news.func(ticker, start_date, end_date)
-        # Pass the analysis window so a historical run trims social posts to it
-        # instead of leaking today's chatter into a backtest (#1220).
-        screen = jev_screen(ticker)
-        stocktwits_block = fetch_stocktwits_messages(
-            ticker, limit=30, start_date=start_date, end_date=end_date, screen=screen
+        from tradingagents.evidence.run import graph_boundary
+
+        def fetch_sources():
+            news_block = get_news.func(ticker, start_date, end_date)
+            # Pass the analysis window so a historical run trims social posts to it
+            # instead of leaking today's chatter into a backtest (#1220).
+            screen = jev_screen(ticker)
+            stocktwits_block = fetch_stocktwits_messages(
+                ticker, limit=30, start_date=start_date, end_date=end_date, screen=screen
+            )
+            reddit_block = fetch_reddit_posts(ticker, start_date=start_date, end_date=end_date, screen=screen)
+            return [news_block, stocktwits_block, reddit_block]
+
+        news_block, stocktwits_block, reddit_block = graph_boundary(
+            "sentiment_sources", {"ticker": ticker, "start": start_date, "end": end_date},
+            fetch_sources,
         )
-        reddit_block = fetch_reddit_posts(ticker, start_date=start_date, end_date=end_date, screen=screen)
 
         system_message = _build_system_message(
             ticker=ticker,

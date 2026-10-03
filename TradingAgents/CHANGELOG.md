@@ -10,6 +10,9 @@ Changes that need action when upgrading are listed under "Upgrading from" in the
 
 ### Added
 
+- Opt-in complete graph input capture and `tradingagents replay --run-id` for offline
+  state comparison without provider clients or memory writes.
+
 - Locked development environment and root-workspace CI with dependency auditing.
 - Atomic per-attempt manifests for CLI/API analysis, with source/environment hashes,
   safe settings, context fingerprints and success/failure/cancellation status.

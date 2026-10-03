@@ -307,3 +307,116 @@ def test_full_graph_records_llm_invocations(tmp_path, monkeypatch, offline, stru
     store = EvidenceStore(tmp_path / "results" / "evidence")
     for ref in manifest["llm_evidence"]:
         assert store.get(ref["evidence_id"])["tool"] == "llm_invocation"
+
+
+def _forbid_replay_providers(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("replay attempted a live call")
+
+    monkeypatch.setattr(trading_graph, "create_llm_client", forbidden)
+    monkeypatch.setattr(ScriptedModel, "_generate", forbidden)
+    monkeypatch.setattr("tradingagents.dataflows.prices.fetch_price_frame", forbidden)
+    monkeypatch.setattr(yahoo_market.yf, "Ticker", forbidden)
+    monkeypatch.setattr(sentiment_analyst, "fetch_stocktwits_messages", forbidden)
+    monkeypatch.setattr(sentiment_analyst, "fetch_reddit_posts", forbidden)
+    monkeypatch.setattr(trading_graph.TradingAgentsGraph, "settle_pending", forbidden)
+    monkeypatch.setattr(trading_graph.TradingAgentsGraph, "resolve_instrument_context", forbidden)
+    for vendors in router.VENDOR_METHODS.values():
+        for vendor in vendors:
+            monkeypatch.setitem(vendors, vendor, forbidden)
+
+
+@pytest.mark.parametrize("structured", [False, True])
+def test_complete_run_replays_without_providers(tmp_path, monkeypatch, offline, structured):
+    from tradingagents.evidence.run import replay_run
+
+    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured),
+                   evidence_llm_responses=True, evidence_graph_replay=True)
+    state, _ = graph.propagate("NVDA", TRADE_DATE)
+
+    _forbid_replay_providers(monkeypatch)
+    result = replay_run(tmp_path / "results", state["run_id"])
+    assert result["matches"]
+    assert result["state"]["final_trade_decision"] == state["final_trade_decision"]
+
+
+def test_replay_rejects_incomplete_evidence_and_preserves_memory(tmp_path, monkeypatch, offline):
+    import json
+
+    from tradingagents.evidence.run import RunReplayError, replay_run
+
+    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=True),
+                   evidence_llm_responses=True, evidence_graph_replay=True)
+    state, _ = graph.propagate("NVDA", TRADE_DATE)
+    from typer.testing import CliRunner
+
+    from cli.main import app
+
+    memory = (tmp_path / "log.md").read_bytes()
+    root = tmp_path / "results"
+    assert replay_run(root, state["run_id"])["matches"]
+    cli_result = CliRunner().invoke(app, ["replay", "--run-id", state["run_id"],
+                                          "--results-dir", str(root)])
+    assert cli_result.exit_code == 0, cli_result.output
+    assert "matches original" in cli_result.output
+    assert (tmp_path / "log.md").read_bytes() == memory
+    path = root / "runs" / state["run_id"] / "manifest.json"
+    manifest = json.loads(path.read_text())
+    from tradingagents.evidence.store import EvidenceStore
+
+    store = EvidenceStore(root / "evidence")
+    original_refs = manifest["graph_evidence"][:]
+    manifest["graph_evidence"] = [ref for ref in original_refs
+                                  if store.get(ref)["payload"]["kind"] != "boundary"]
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(RunReplayError, match="boundary absent"):
+        replay_run(root, state["run_id"])
+    manifest["graph_evidence"] = []
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(RunReplayError, match="initial/final"):
+        replay_run(root, state["run_id"])
+    with pytest.raises(RunReplayError, match="invalid run_id"):
+        replay_run(root, "../outside")
+
+
+@pytest.mark.parametrize("options", [
+    {"evidence_llm_responses": False}, {"checkpoint_enabled": True, "evidence_llm_responses": True},
+])
+def test_graph_capture_rejects_unreplayable_configuration(tmp_path, monkeypatch, options):
+    graph = _graph(tmp_path, monkeypatch, ScriptedModel(), evidence_graph_replay=True, **options)
+    with pytest.raises(ValueError, match="graph capture requires"):
+        graph.propagate("NVDA", TRADE_DATE)
+
+
+def test_full_replay_preserves_structured_failure_fallback(tmp_path, monkeypatch, offline):
+    from langchain_core.runnables import RunnableLambda
+
+    from tradingagents.evidence.run import replay_run
+
+    failures = []
+
+    class FailingStructuredModel(ScriptedModel):
+        def with_structured_output(self, schema, **kwargs):
+            def fail(prompt):
+                failures.append(schema.__name__)
+                raise ValueError("invalid provider output")
+            return RunnableLambda(fail)
+
+    graph = _graph(tmp_path, monkeypatch, FailingStructuredModel(),
+                   evidence_llm_responses=True, evidence_graph_replay=True)
+    state, _ = graph.propagate("NVDA", TRADE_DATE)
+    assert set(failures) == {"SentimentReport", "ResearchPlan", "TraderProposal", "PortfolioDecision"}
+    recorded_failures = failures[:]
+    _forbid_replay_providers(monkeypatch)
+    assert replay_run(tmp_path / "results", state["run_id"])["matches"]
+    assert failures == recorded_failures
+
+
+def test_replay_cli_explains_rejection(tmp_path):
+    from typer.testing import CliRunner
+
+    from cli.main import app
+
+    result = CliRunner().invoke(app, ["replay", "--run-id", "invalid", "--results-dir", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "invalid run_id" in result.output

@@ -16,6 +16,10 @@ _RUN = ContextVar("llm_evidence_run", default=None)
 _REPLAY = ContextVar("llm_evidence_replay", default=None)
 
 
+class RecordedInvocationError(RuntimeError):
+    """An archived provider failure, replayed without importing its exception type."""
+
+
 class LLMReplayError(RuntimeError):
     """No exact recorded invocation is available; live fallback is forbidden."""
 
@@ -23,19 +27,38 @@ class LLMReplayError(RuntimeError):
 def _pack(value):
     if isinstance(value, BaseMessage):
         return {"kind": "message", "data": message_to_dict(value)}
-    if isinstance(value, BaseModel):
-        return {"kind": "model", "data": value.model_dump(mode="json")}
     if hasattr(value, "to_messages"):
         return _pack(value.to_messages())
-    if isinstance(value, list):
+    if isinstance(value, BaseModel):
+        return {"kind": "model", "data": value.model_dump(mode="json")}
+    if isinstance(value, (list, tuple)):
         return {"kind": "list", "data": [_pack(v) for v in value]}
     if isinstance(value, dict):
         return {"kind": "dict", "data": {k: _pack(v) for k, v in value.items()}}
     return {"kind": "json", "data": value}
 
 
+def _request_pack(value):
+    packed = _pack(value)
+
+    def clean(item):
+        kind = item["kind"]
+        if kind == "message":
+            item["data"]["data"]["id"] = None
+        elif kind == "dict":
+            for child in item["data"].values():
+                clean(child)
+        elif kind == "list":
+            for child in item["data"]:
+                clean(child)
+    clean(packed)
+    return packed
+
+
 def _unpack(value, schema=None):
     kind, data = value["kind"], value["data"]
+    if kind == "error":
+        raise RecordedInvocationError("recorded provider failure: " + data)
     if kind == "message":
         return messages_from_dict([data])[0]
     if kind == "model":
@@ -117,7 +140,7 @@ class RecordedModel(Runnable):
         configurable = {k: v for k, v in (config or {}).get("configurable", {}).items()
                         if not k.startswith("__pregel_")
                         and k not in {"thread_id", "checkpoint_id", "checkpoint_ns", "checkpoint_map"}}
-        request = {"identity": self.identity, "binding": self.binding, "input": _pack(input),
+        request = {"identity": self.identity, "binding": self.binding, "input": _request_pack(input),
                    "kwargs": _pack(kwargs), "configurable": _pack(configurable)}
         try:
             key = hashlib.sha256(_encode(request)).hexdigest()
@@ -130,16 +153,25 @@ class RecordedModel(Runnable):
             return _unpack(replay[key], self.schema)
         if self.delegate is None:
             raise LLMReplayError("no live delegate")
-        response = self.delegate.invoke(input, config=config, **kwargs)
+        failure = None
+        try:
+            response = self.delegate.invoke(input, config=config, **kwargs)
+        except Exception as exc:
+            failure = exc
+            response = None
         store, manifest, checkpoint, lock = session
         try:
             with lock:
                 evidence_id = store.put(run_id=manifest["run_id"], tool="llm_invocation", payload={
-                    "schema_version": 1, "request": request, "response": _pack(response),
+                    "schema_version": 1, "request": request,
+                    "response": {"kind": "error", "data": type(failure).__name__}
+                    if failure is not None else _pack(response),
                 })
                 manifest["llm_evidence"].append({"sequence": len(manifest["llm_evidence"]) + 1,
                                                  "evidence_id": evidence_id, "request_sha256": key})
                 checkpoint()
         except Exception as exc:
             raise EvidenceCaptureError("could not persist requested LLM evidence") from exc
+        if failure is not None:
+            raise failure
         return response

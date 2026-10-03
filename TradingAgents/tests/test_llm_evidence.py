@@ -119,3 +119,45 @@ def test_unsupported_request_cannot_trigger_provider_fallback(tmp_path):
     with pytest.raises(EvidenceCaptureError), analysis_run(config(tmp_path), "AAPL", "2026-01-05", []):
         invoke_structured(RecordedModel(delegate, "fixture"), object(), "test")
     delegate.invoke.assert_not_called()
+
+
+def test_prompt_message_ids_do_not_mask_content_changes(tmp_path):
+    from langchain_core.messages import HumanMessage
+    from langchain_core.prompt_values import ChatPromptValue
+
+    delegate = Mock()
+    delegate.invoke.return_value = AIMessage(content="ok")
+    with analysis_run(config(tmp_path), "AAPL", "2026-01-05", []) as run:
+        RecordedModel(delegate, "fixture").invoke(
+            ChatPromptValue(messages=[HumanMessage("question", id="original")]))
+    with replay_llm(EvidenceStore(tmp_path / "evidence"), [run["llm_evidence"][0]["evidence_id"]]):
+        model = RecordedModel(None, "fixture")
+        assert model.invoke(ChatPromptValue(messages=[HumanMessage("question", id="new")])).content == "ok"
+        with pytest.raises(LLMReplayError):
+            model.invoke(ChatPromptValue(messages=[HumanMessage("different", id="new")]))
+
+
+def test_message_content_is_not_interpreted_as_archive_wrappers(tmp_path):
+    from langchain_core.messages import HumanMessage
+
+    delegate = Mock()
+    delegate.invoke.return_value = AIMessage(content="ok")
+    prompt = [HumanMessage(content=[{"kind": "message"}])]
+    with analysis_run(config(tmp_path), "AAPL", "2026-01-05", []) as run:
+        RecordedModel(delegate, "fixture").invoke(prompt)
+    with replay_llm(EvidenceStore(tmp_path / "evidence"), [run["llm_evidence"][0]["evidence_id"]]):
+        assert RecordedModel(None, "fixture").invoke(prompt).content == "ok"
+
+
+def test_failed_invocation_records_type_without_exception_message(tmp_path):
+    from tradingagents.evidence.llm import RecordedInvocationError
+
+    delegate = Mock()
+    delegate.invoke.side_effect = ValueError("secret-provider-response")
+    with analysis_run(config(tmp_path), "AAPL", "2026-01-05", []) as run, pytest.raises(ValueError):
+        RecordedModel(delegate, "fixture").invoke("question")
+    ids = [run["llm_evidence"][0]["evidence_id"]]
+    store = EvidenceStore(tmp_path / "evidence")
+    assert store.get(ids[0])["payload"]["response"] == {"kind": "error", "data": "ValueError"}
+    with replay_llm(store, ids), pytest.raises(RecordedInvocationError, match="ValueError"):
+        RecordedModel(None, "fixture").invoke("question")

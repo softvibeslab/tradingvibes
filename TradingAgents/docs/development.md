@@ -48,3 +48,6 @@ is not automatically an analysis attempt; callers needing metadata can use the
 
 Manifests do not archive tool evidence or LLM responses. They are the first step
 toward replay, not a claim of full reproducibility. Keep run artifacts out of Git.
+
+See [offline run replay](run-replay.md) for whole-graph capture, replay CLI,
+retention settings and current limitations.
